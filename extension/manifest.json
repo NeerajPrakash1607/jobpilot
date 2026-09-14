@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "JobPilot \u2014 Application Companion",
+  "version": "2.3.1",
+  "description": "Import the job you are viewing and fill application details from your local JobPilot profile.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "JobPilot"
+  }
+}
