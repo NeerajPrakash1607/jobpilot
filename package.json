@@ -1,0 +1,14 @@
+{
+  "name": "jobpilot-local",
+  "version": "2.3.1",
+  "private": true,
+  "type": "module",
+  "description": "Live job discovery, application preparation, browser autofill, and local application tracking.",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
