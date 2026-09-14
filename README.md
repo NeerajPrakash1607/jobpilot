@@ -10,7 +10,7 @@ Requires Node.js **22.16+**. Clone this repository, then run:
 npm start
 ```
 
-Open [JobPilot at localhost:5181](http://127.0.0.1:5181). Keep the terminal running. No npm dependencies or build step are required. macOS users can also run `./launch.command`.
+Open [JobPilot at localhost:5181](http://127.0.0.1:5181). Keep the terminal running. No npm dependencies or build step are required. macOS users can also run `zsh launch.command`.
 
 A fresh checkout starts with an empty profile and no résumé. Open **Your profile**, enter your details, and upload your own PDF. PDF text extraction requires Python 3 and `pypdf`:
 
