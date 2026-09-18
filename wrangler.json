@@ -1,0 +1,8 @@
+{
+  "name": "jobpilot-public",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-09-15",
+  "assets": {"directory": "dist/client", "binding": "ASSETS", "run_worker_first": true},
+  "dev": {"port": 5183, "ip": "127.0.0.1"},
+  "d1_databases": [{"binding":"DB","database_name":"jobpilot-watch-local","database_id":"00000000-0000-0000-0000-000000000001","migrations_dir":"drizzle"}]
+}
