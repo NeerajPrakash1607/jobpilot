@@ -77,6 +77,11 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-level').selectOption('entry');await page.locator('#watch-arrangement').selectOption('hybrid');
   await page.locator('#watch-search').click();
   await page.locator('#watch-result-count').filter({hasText:'1 job to explore'}).waitFor();
+  assert.match(await page.locator('[data-match-group="experience_unclear"]').innerText(),/experience unclear/);
+  await page.locator('#watch-sponsorship').selectOption('needed');
+  await page.locator('#watch-includeInternships').check();
+  await page.locator('#watch-includeApprenticeships').check();
+  await page.locator('#watch-search').click();
   const role=page.locator('.job-result-row');
   await role.getByRole('button',{name:'Junior Support Engineer',exact:true}).click();
   assert.equal(await page.locator('#job-dialog').isVisible(),true);
@@ -112,7 +117,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-email-consent').check();await page.locator('#watch-subscribe').click();
   await page.locator('#watch-alert-success').waitFor();
   const subscribed=await store.account(account.id);assert.equal(subscribed.status,'active');
-  assert.deepEqual(subscribed.preferences,{companies:['stripe'],roles:'support',city:'Dublin',level:'entry',arrangement:'hybrid'});
+  assert.deepEqual(subscribed.preferences,{companies:['stripe'],roles:'support',city:'Dublin',level:'entry',arrangement:'hybrid',sponsorship:'needed',includeInternships:true,includeApprenticeships:true});
   await page.screenshot({path:'/private/tmp/jobpilot-redesign-success.png'});
   const savedAlertSearch={...subscribed.preferences,companies:['amazon','mastercard','stripe']};
   await store.preferences(account.id,savedAlertSearch);
@@ -128,6 +133,9 @@ test('one job flow supports anonymous search, saved applications, connections an
   assert.equal(await page.locator('#watch-city').inputValue(),'');
   assert.equal(await page.locator('#watch-level').inputValue(),'any');
   assert.equal(await page.locator('#watch-arrangement').inputValue(),'any');
+  assert.equal(await page.locator('#watch-sponsorship').inputValue(),'any');
+  assert.equal(await page.locator('#watch-includeInternships').isChecked(),false);
+  assert.equal(await page.locator('#watch-includeApprenticeships').isChecked(),false);
   assert.deepEqual((await store.account(account.id)).preferences,savedAlertSearch);
   const companyNames=await page.locator('.company-choice-name strong').allTextContents();
   assert.deepEqual(companyNames,[...companyNames].sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base',numeric:true})));
@@ -151,7 +159,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-request-form [name=name]').fill('Unsupported');
   await page.locator('#watch-request-form [name=url]').fill('https://example.org/careers');
   await page.getByRole('button',{name:'Add company',exact:true}).click();
-  await page.locator('#watch-request-message').filter({hasText:'Link saved'}).waitFor();
+  await page.locator('#watch-request-message').filter({hasText:'Connection requested'}).waitFor();
   assert.ok(!(await store.sources()).some(s=>s.name==='Unsupported'));
   assert.match(await page.locator('#watch-companies').innerText(),/Unsupported/);
   assert.match(await page.locator('#watch-companies').innerText(),/Automatic checking unavailable/);

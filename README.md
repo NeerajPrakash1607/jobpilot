@@ -22,6 +22,14 @@ Yahoo and Mastercard use their official public Workday boards. Each connector fi
 
 Google sign-in, account watchlists, company requests, a 50-subscriber pilot cap, waitlisting and daily digest processing are implemented behind configuration gates. **A new deployment starts with alerts disabled and requires its own Google client, sender and scheduling setup.** Follow [Google and email setup](docs/GOOGLE-AND-EMAIL-SETUP.md) and verify login, delivery, unsubscribe and a scheduled cycle before enabling subscriptions. The private Apps Script runner in `ops/JobPilot.gs` must be installed and authorised separately; publishing the website does not install that runner.
 
+## Early-career pilot
+
+The **Early-career IT support** shortcut selects technical-support roles and 0–2 years of required experience. Higher preferred experience is disclosed; unclear or incomplete experience is separated on the website and excluded from early-career emails. Sponsorship uncertainty is labelled separately when sponsorship is needed. Internships and apprenticeships have separate opt-ins. Résumé skill gaps are explained only in the browser and never hide jobs.
+
+Daily alerts contain only newly discovered matches after activation or a search change, excluding initial company imports. Quiet days produce no job email. Failed company checks retain visibly unverified listings on the website and exclude those jobs from emails; two failed daily checks produce one independent warning per outage. Verified added feeds are shared publicly, while account watchlists and requester identities remain private.
+
+See [the two-week pilot guide](docs/PILOT.md) for the complete rules, launch checks and five-friend trial. The trial has not been run.
+
 ## Use the website
 
 1. Open Find jobs and browse immediately. Search by role, location or company, then save roles or apply on the employer website.
@@ -80,11 +88,11 @@ git push -u origin codex/describe-your-change
 
 Open **Compare & pull request** on GitHub, review the diff and checks, and merge when ready. Merging a GitHub PR does not deploy the live website automatically; hosting still uses the separate Sites publishing workflow. Changes to the Google Apps Script runner also need to be copied into that private script separately.
 
-## Current limitations and planned pilot work
+## Current limitations
 
 - Career sites connect automatically only when a supported feed can be verified. Other careers links remain visible but do not contribute jobs or alerts.
-- Experience filtering currently uses job-title keywords. It does not yet verify required years or distinguish required from preferred experience.
-- The planned 0–2-year matching rules, separate possible-match results, and a warning after two consecutive daily source failures are not implemented in this version.
+- Early-career experience and sponsorship extraction uses conservative text rules. Ambiguous requirements and summary-only descriptions stay explicitly uncertain.
+- The two-week user trial has not started; automated tests do not demonstrate real-world matching quality or inbox delivery.
 - Job-feed availability and summary completeness vary by employer. Review the full employer posting before applying.
 - Résumé tailoring rearranges supplied content without inventing qualifications and does not promise an ATS score or hiring outcome.
 

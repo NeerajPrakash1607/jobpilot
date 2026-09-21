@@ -757,3 +757,15 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 
 /* Saved careers links explain why they are outside the connected directory. */
 .company-link-header{display:flex;align-items:center;gap:12px;padding-left:30px}.company-link-header .company-avatar{flex-shrink:0}.company-link-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin:10px 0 0 86px}.company-link-actions a,.company-link-actions button{font-size:14px;color:var(--accent);text-underline-offset:3px}.company-link .company-choice-name strong{overflow-wrap:anywhere}@media(max-width:600px){.company-link-header{gap:10px;padding-left:28px}.company-link-actions{margin-left:73px}}
+
+/* Pilot matching evidence uses the existing theme and compact result rows. */
+.match-group { min-width: 0; }
+.match-group + .match-group { border-top: 1px solid var(--line); }
+.match-group-heading { padding: 16px 20px; border-bottom: 1px solid var(--line-soft); }
+.match-group-heading h3 { margin: 0 0 .35rem; font-size: 1rem; }
+.match-group-heading p, .job-listing-dates, .job-skill-gaps { font-size: .875rem; line-height: 1.5; margin: .35rem 0 0; overflow-wrap: anywhere; }
+.match-group-heading p { opacity: .85; }
+.job-evidence { margin-top: 1.5rem; }
+.job-evidence blockquote { margin: .5rem 0; padding: .5rem 1rem; border-left: 2px solid currentColor; font-size: .875rem; }
+.advanced-fields .training-option { display: flex; align-items: center; gap: .5rem; }
+.training-option input[type=checkbox] { width: 1.1rem; height: 1.1rem; min-height: auto; flex: 0 0 auto; }

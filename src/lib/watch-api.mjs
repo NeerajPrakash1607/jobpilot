@@ -71,7 +71,7 @@ export async function watchApi(request,env){
   if(route==='/logout'){if(session)await store.logout(await hashToken(session));return json({ok:true},200,{'Set-Cookie':setCookie(request,'jp_watch_session','',0)});}
   if(!account)throw new AppError('Sign in with Google to save your watchlist or manage alerts.',401);
   if(route==='/connect')return json({...await connectCompany(store,account.id,data,now),requests:await store.requests(account.id)});
-  if(route==='/preferences')return json({account:await store.preferences(account.id,parseWatchPreferences(data,await store.sources()))});
+  if(route==='/preferences')return json({account:await store.preferences(account.id,parseWatchPreferences(data,await store.sources()),now)});
   if(route==='/subscribe'){
    if(!alertsReady)throw new AppError('Email alerts are not accepting subscriptions yet. Your watchlist can still be saved.',503);
    if(data.consent!==true)throw new AppError('Please choose to receive daily job-alert emails.');

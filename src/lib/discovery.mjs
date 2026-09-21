@@ -1,3 +1,5 @@
+import {matchesRole} from './job-matching.mjs';
+export {matchesRole} from './job-matching.mjs';
 
 
 import { AppError, object, text, validateJob, canonicalUrl, stripHtml, skillsIn } from './domain.mjs';
@@ -30,17 +32,6 @@ export function defaultSearch(profile) {
 const normalize = value => value.toLowerCase().normalize('NFKD').replace(/\p{M}/gu,'').replace(/front[ -]?end/g,'frontend').replace(/back[ -]?end/g,'backend').replace(/full[ -]?stack/g,'fullstack').replace(/[^\p{L}\p{N}+#.]+/gu,' ').trim();
 const hasPhrase = (haystack,needle) => ` ${haystack} `.includes(` ${needle} `);
 const senior = /\b(?:senior|sr\.?|staff|principal|lead|manager|director|head|vp|architect)\b/i;
-
-export function matchesRole(job, query) {
-  const title = normalize(job.title);
-  const description = normalize(job.description);
-  return query.split(/[,/;]+/).map(normalize).filter(Boolean).some(phrase => {
-    // Common role families avoid missing "Front-End Engineer" when searching "frontend developer".
-    if (/^(?:frontend|react)(?: (?:developer|engineer))?$/.test(phrase)) return /\b(?:frontend|react|ui)\b/.test(title) || (/\b(?:software|fullstack|web)\b/.test(title) && /\b(?:engineer|developer)\b/.test(title) && /\b(?:frontend|react)\b/.test(description));
-    if (/^(?:(?:technical|customer|product|it) )?support(?: (?:specialist|engineer|analyst))?$/.test(phrase)) return /\bsupport\b/.test(title);
-    return phrase.split(' ').every(word => ['engineer','developer'].includes(word) ? /\b(?:engineer|developer)\b/.test(title) : hasPhrase(title,word));
-  });
-}
 
 // Location labels are evidence, not a work-authorisation check. Unknown remote ranges are excluded.
 export function locationMatch(job, search) {

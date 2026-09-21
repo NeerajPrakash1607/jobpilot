@@ -1,15 +1,16 @@
+import {resumeSkillEvidence} from './lib/job-matching.mjs';
 import {searchTakeoff, flyToApplications} from './motion.js';
 import {unconnectedCompanyLinks} from './lib/company-sources.mjs';
 const $ = id => document.getElementById(id);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
 const when = value => value ? new Date(value).toLocaleString('en-IE', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Not checked yet';
-const healthNames = {fresh:'Up to date',partial:'Partial coverage',stale:'Older results',unchecked:'Not checked yet',unavailable:'Check failed',unsupported:'Automatic checking unavailable'};
+const healthNames = {fresh:'Up to date',partial:'Partial coverage',stale:'Not recently verified',unchecked:'Not checked yet',unavailable:'Check failed',unsupported:'Automatic checking unavailable'};
 const arrangementNames = {remote:'Remote',hybrid:'Hybrid',onsite:'Onsite'};
-const levelNames = {any:'Any experience',entry:'Entry / graduate',mid:'Mid level',senior:'Senior / management'};
-const emptySearch = {companies:[],roles:'',city:'',level:'any',arrangement:'any'};
+const levelNames = {any:'Any experience',entry:'Early career · 0–2 years required',mid:'Mid level',senior:'Senior / management'};
+const emptySearch = {companies:[],roles:'',city:'',level:'any',arrangement:'any',sponsorship:'any',includeInternships:false,includeApprenticeships:false};
 const companyOrder = (a,b) => a.name.localeCompare(b.name,'en',{sensitivity:'base',numeric:true});
 
-export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies}) {
+export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies, getProfile}) {
   let companies = [], selection = new Set(), jobs = [], visible = 20, state = null;
   let initialized = false, filterRevision = 0, totalMatches = 0, checking = false, saving = new Set();
   let alertDraft = null, authPurpose = 'alerts', alertBusy = false, legacy = [], previewJob = null;
@@ -59,10 +60,11 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     for (let i = 0; i < 9; i++) { const dot = document.createElement('i'); dot.style.setProperty('--i',i); burst.append(dot); }
     element.append(burst); setTimeout(() => { burst.remove(); element.classList.remove('happy-pop'); },1000);
   }
-  const preferences = () => ({...Object.fromEntries(new FormData($('watch-filter-form'))),companies:[...selection]});
+  const preferences = () => ({...Object.fromEntries(new FormData($('watch-filter-form'))),companies:[...selection],includeInternships:$('watch-includeInternships').checked,includeApprenticeships:$('watch-includeApprenticeships').checked});
   function populate(prefs) {
     selection = new Set(prefs.companies.filter(id => companies.some(c => c.id === id && c.supported)));
-    for (const key of ['roles','city','level','arrangement']) $('watch-' + key).value = prefs[key];
+    for (const key of ['roles','city','level','arrangement','sponsorship']) $('watch-' + key).value = prefs[key] || emptySearch[key];
+    for (const key of ['includeInternships','includeApprenticeships']) $('watch-'+key).checked = prefs[key] === true;
     renderCompanies();
   }
   const isSaved = job => getSavedJobs().some(j => j.url === job.url);
@@ -77,12 +79,12 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     const matches = directory.filter(c => c.name.toLowerCase().includes(query));
     $('watch-companies').innerHTML = matches.length ? matches.map(c => c.supported
       ? `<div class="company-choice ${selection.has(c.id) ? 'selected':''}"><label><input type="checkbox" data-watch-company="${escape(c.id)}" ${selection.has(c.id) ? 'checked':''}><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.lastSuccess ? `${c.count} Ireland / eligible remote jobs` : 'Count not available yet'} · ${healthNames[c.health]}</span></span></label><details class="company-coverage"><summary>Coverage</summary><p>Last successful check: ${when(c.lastSuccess)}${c.partial ? '. Some employer listings may be missing.':''}${c.note ? '. '+escape(c.note):''}</p><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Official careers page ↗</a></details></div>`
-      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.ready ? 'Saved careers link · Ready to connect':'Saved careers link · Automatic checking unavailable'}</span></span></div><div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready ? 'Review and connect':'Change link'}</button></div><details class="company-coverage"><summary>About this link</summary><p>${escape(c.message)}</p></details></div>`
+      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.ready ? 'Saved careers link · Ready to connect':'Connection requested · Automatic checking unavailable'}</span></span></div><div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready ? 'Review and connect':'Change link'}</button></div><details class="company-coverage"><summary>About this link</summary><p>${escape(c.message)}</p></details></div>`
     ).join('') : `<p class="company-no-match">${query ? `“${escape($('watch-company-filter').value)}” isn’t in your list yet. Add its careers page below.` : 'The company directory is loading.'}</p>`;
     $('watch-companies').scrollTop = scroll;
     if (focusId) [...$('watch-companies').querySelectorAll('input')].find(el => el.dataset.watchCompany === focusId)?.focus({preventScroll:true});
     $('watch-selection-chips').innerHTML = picked.map(c => `<button type="button" class="selection-chip" data-remove-company="${escape(c.id)}" aria-label="Remove ${escape(c.name)} filter">${escape(c.name)} <span aria-hidden="true">×</span></button>`).join('');
-    const count = ['level','arrangement'].filter(k => $('watch-'+k).value !== 'any').length;
+    const count = ['level','arrangement','sponsorship'].filter(k => $('watch-'+k).value !== 'any').length + ['includeInternships','includeApprenticeships'].filter(k => $('watch-'+k).checked).length;
     $('watch-filter-count').textContent = count ? `(${count})` : '';
     $('watch-filter-summary').textContent = [$('watch-roles').value.trim() || 'All roles', $('watch-city').value.trim() || 'Ireland', picked.length ? `${picked.length} ${picked.length === 1 ? 'company':'companies'}` : ''].filter(Boolean).join(' · ');
   }
@@ -93,9 +95,17 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     const missing = sources.filter(c => !['fresh','partial'].includes(c.health));
     const latest = Math.max(0,...sources.map(c => c.lastSuccess || 0));
     $('watch-freshness').textContent = missing.length ? `${missing.length} ${missing.length === 1 ? 'company needs':'companies need'} a fresh check · View coverage` : sources.some(c => c.partial) ? 'Partial coverage · See company details' : latest ? `Updated ${when(latest)} · View coverage` : 'Employer listings · View coverage';
-    $('watch-results').innerHTML = jobs.length ? jobs.slice(0,visible).map((job,index) => {
+    function row(job,index) {
       const saved = isSaved(job), source = companies.find(c => c.id === job.sourceId), fresh = ['fresh','partial'].includes(source?.health);
-      return `<article class="job-result-row" style="--row:${Math.min(Math.max(0,index-animateFrom),6)};${index < animateFrom ? 'animation:none':''}"><div class="company-avatar job-avatar" aria-hidden="true">${escape(job.company.slice(0,2))}</div><div class="job-result-main"><span class="job-company-name">${escape(job.company)}</span><h3><button class="job-title-button" data-watch-detail="${escape(job.id)}">${escape(job.title)}</button></h3><div class="job-result-meta"><span>${escape(job.location)}</span>${arrangementNames[job.arrangement] ? `<span class="arrangement-tag">${arrangementNames[job.arrangement]}</span>`:''}${!fresh ? '<span class="coverage-warning">Older / unverified results</span>':''}</div></div><div class="job-row-actions"><button type="button" class="save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" aria-label="${saved ? 'Saved':'Save'} ${escape(job.title)}" aria-pressed="${saved}" ${saved ? 'disabled':''}><span aria-hidden="true">${saved ? '✓':'+'}</span><span>${saved ? 'Saved':'Save'}</span></button><a class="apply-job" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer" aria-label="Apply for ${escape(job.title)} on the employer website">Apply <span aria-hidden="true">↗</span></a></div></article>`;
+      const skills = resumeSkillEvidence(job,getProfile());
+      return `<article class="job-result-row" style="--row:${Math.min(Math.max(0,index-animateFrom),6)};${index < animateFrom ? 'animation:none':''}"><div class="company-avatar job-avatar" aria-hidden="true">${escape(job.company.slice(0,2))}</div><div class="job-result-main"><span class="job-company-name">${escape(job.company)}</span><h3><button class="job-title-button" data-watch-detail="${escape(job.id)}">${escape(job.title)}</button></h3><div class="job-result-meta"><span>${escape(job.location)}</span>${arrangementNames[job.arrangement] ? `<span class="arrangement-tag">${arrangementNames[job.arrangement]}</span>`:''}${job.training!=='regular'?`<span class="arrangement-tag">${escape(job.training)}</span>`:''}${job.experience.kind==='clear'?`<span>${escape(job.experience.label)}</span>`:''}</div><p class="job-listing-dates">First found ${when(job.firstSeen)}${job.listingDate?` · Employer ${escape(job.dateLabel.toLowerCase())}: ${when(job.listingDate)}`:''}</p>${!fresh?`<p class="coverage-warning">Not recently verified · Last successful check: ${when(source?.lastSuccess)}</p>`:''}${job.group==='sponsorship_unknown'?'<p class="coverage-warning">Sponsorship not stated</p>':''}${job.experience.higherPreferred.length?`<p class="job-listing-dates">Higher experience preferred — see requirements.</p>`:''}${skills.compared&&skills.missing.length?`<p class="job-skill-gaps">Required skills not found in your résumé: ${escape(skills.missing.join(', '))}</p>`:''}</div><div class="job-row-actions"><button type="button" class="save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" aria-label="${saved ? 'Saved':'Save'} ${escape(job.title)}" aria-pressed="${saved}" ${saved ? 'disabled':''}><span aria-hidden="true">${saved ? '✓':'+'}</span><span>${saved ? 'Saved':'Save'}</span></button><a class="apply-job" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer" aria-label="Apply for ${escape(job.title)} on the employer website">Apply <span aria-hidden="true">↗</span></a></div></article>`;
+    }
+    const shown=jobs.slice(0,visible);
+    const sections=[['matches','Matching roles','Closest role matches first, then most recently found.'],['sponsorship_unknown','Sponsorship not stated','These roles match your other filters. Ask the employer about sponsorship.'],['experience_unclear','Possible match — experience unclear','The available requirements do not confirm a 0–2-year match. These jobs stay on the website and are excluded from early-career emails.']];
+    $('watch-results').innerHTML = jobs.length ? sections.map(([group,title,help])=>{
+      const items=shown.filter(j=>j.group===group);if(!items.length)return '';
+      const showHeading=group!=='matches'||jobs.some(j=>j.group!=='matches');
+      return `<section class="match-group" data-match-group="${group}" aria-label="${title}">${showHeading?`<div class="match-group-heading"><h3>${title} <span>(${jobs.filter(j=>j.group===group).length})</span></h3><p>${help}</p></div>`:''}${items.map((job)=>row(job,shown.indexOf(job))).join('')}</section>`;
     }).join('') : `<div class="jobs-empty"><img src="/assets/pilot.png" width="100" height="100" alt=""><h3>${sources.some(c => c.lastSuccess) ? 'No matches just yet.' : 'These companies haven’t been checked yet.'}</h3><p>${sources.some(c => c.lastSuccess) ? 'Try a broader role, another company or fewer filters.' : 'Open Company coverage to check listings. An unavailable count doesn’t mean there are no jobs.'}</p><button type="button" class="button button-secondary" id="watch-empty-reset">${sources.some(c => c.lastSuccess) ? 'Clear filters':'View company coverage'}</button></div>`;
     $('watch-more').hidden = visible >= jobs.length;
     $('watch-more').textContent = `Show ${Math.min(20,Math.max(0,jobs.length-visible))} more jobs`;
@@ -115,7 +125,11 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   function showJob(job) {
     previewJob = job;
     const saved = isSaved(job), source = companies.find(c => c.id === job.sourceId);
-    $('job-preview-content').innerHTML = `<p class="eyebrow">${escape(job.company)}</p><h2 id="job-preview-title">${escape(job.title)}</h2><p>${escape(job.location)}${arrangementNames[job.arrangement] ? ' · '+arrangementNames[job.arrangement]:''}</p><div class="job-preview-actions"><a class="button button-primary" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer">Apply on company website ↗</a><button class="button button-secondary save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" ${saved ? 'disabled':''}>${saved ? '✓ Saved':'Save job'}</button></div><p class="field-help">Applying opens the employer’s form. It doesn’t mark the job as applied.</p><div class="watch-reasons">${job.reasons.map(r => `<span>${escape(r)}</span>`).join('')}</div><h3>${job.summaryOnly ? 'Listing summary':'About the role'}</h3>${job.summaryOnly ? '<p class="field-help">The employer’s page has the full job description and requirements.</p>':''}<div class="job-description-text">${escape(job.description)}</div><p class="field-help">First seen ${when(job.firstSeen)} · ${healthNames[source?.health] || 'Freshness unknown'}</p>`;
+    $('job-preview-content').innerHTML = `<p class="eyebrow">${escape(job.company)}</p><h2 id="job-preview-title">${escape(job.title)}</h2><p>${escape(job.location)}${arrangementNames[job.arrangement] ? ' · '+arrangementNames[job.arrangement]:''}</p><div class="job-preview-actions"><a class="button button-primary" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer">Apply on company website ↗</a><button class="button button-secondary save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" ${saved ? 'disabled':''}>${saved ? '✓ Saved':'Save job'}</button></div><p class="field-help">Applying opens the employer’s form. It doesn’t mark the job as applied.</p><div class="watch-reasons">${job.reasons.map(r => `<span>${escape(r)}</span>`).join('')}</div><h3>${job.summaryOnly ? 'Listing summary':'About the role'}</h3>${job.summaryOnly ? '<p class="field-help">The employer’s page has the full job description and requirements.</p>':''}<div class="job-description-text">${escape(job.description)}</div><p class="field-help">First found ${when(job.firstSeen)}${job.listingDate ? ` · Employer ${escape(job.dateLabel.toLowerCase())}: ${when(job.listingDate)}`:''} · Last successful company check: ${when(source?.lastSuccess)} · ${healthNames[source?.health] || 'Freshness unknown'}</p>`;
+    const skills=resumeSkillEvidence(job,getProfile());
+    const evidence=document.createElement('section');evidence.className='job-evidence';
+    evidence.innerHTML=`<h3>Requirements at a glance</h3><p>${escape(job.experience.label)}</p>${[...new Set(job.experience.evidence)].map(line=>`<blockquote>${escape(line)}</blockquote>`).join('')}${job.experience.higherPreferred.map(line=>`<p><strong>Higher experience preferred:</strong> ${escape(line)}</p>`).join('')}<p><strong>${escape(job.sponsorship.label)}</strong>${job.sponsorship.evidence?` — ${escape(job.sponsorship.evidence)}`:''}</p><p class="field-help">Based on the available description. Check the employer’s full requirements before applying.</p>${skills.compared?`<h3>Résumé comparison · this browser only</h3><p>${skills.matched.length?`Required skills found: ${escape(skills.matched.join(', '))}`:'No required skill overlap recognised.'}</p>${skills.missing.length?`<p>Required skills not found in your résumé: ${escape(skills.missing.join(', '))}</p>`:''}<p class="field-help">This compares text, not your ability or hiring chances. It does not filter out jobs or personalise your emails.${skills.partial?' Only a listing summary was available.':''}</p>`:'<p class="field-help">Add your résumé in Your profile for a comparison kept only in this browser.</p>'}`;
+    $('job-preview-content').append(evidence);
     showDialog('job-dialog');
   }
   async function handleJobAction(e) {
@@ -137,7 +151,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   }
   function summary(prefs) {
     const names = companies.filter(c => prefs.companies.includes(c.id)).sort(companyOrder).map(c => c.name);
-    return `<dl><div><dt>Companies</dt><dd>${escape(names.join(', ') || 'Choose a connected company')}</dd></div><div><dt>Role</dt><dd>${escape(prefs.roles || 'All roles')}</dd></div><div><dt>Location</dt><dd>${escape(prefs.city || 'Ireland & eligible remote')}</dd></div><div><dt>Preferences</dt><dd>${escape(levelNames[prefs.level])} · ${escape(arrangementNames[prefs.arrangement] || 'Any arrangement')}</dd></div></dl>`;
+    return `<dl><div><dt>Companies</dt><dd>${escape(names.join(', ') || 'Choose a connected company')}</dd></div><div><dt>Role</dt><dd>${escape(prefs.roles || 'All roles')}</dd></div><div><dt>Location</dt><dd>${escape(prefs.city || 'Ireland & eligible remote')}</dd></div><div><dt>Preferences</dt><dd>${escape(levelNames[prefs.level])} · ${escape(arrangementNames[prefs.arrangement] || 'Any arrangement')} · ${prefs.sponsorship==='needed'?'Sponsorship needed; unstated shown separately':'Any sponsorship status'} · ${prefs.includeInternships?'Internships included':'No internships'} · ${prefs.includeApprenticeships?'Apprenticeships included':'No apprenticeships'}</dd></div></dl>`;
   }
   function reviewDraft() {
     const prefs = preferences();
@@ -207,7 +221,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
       $('watch-alert-review').hidden = true; $('watch-subscription-actions').hidden = true; $('watch-alert-success').hidden = false;
       const queued = state.account.status === 'waitlisted';
       $('watch-success-title').textContent = queued ? 'You’re on the waitlist.' : existing ? 'Your alerts are updated.' : 'Your daily alerts are ready!';
-      $('watch-success-copy').textContent = queued ? 'Your search is saved. Emails will start when your place is activated.' : 'We’ll email matching roles to '+state.account.email+'. You can change or pause alerts here any time.';
+      $('watch-success-copy').textContent = queued ? 'Your search is saved. Emails will start when your place is activated.' : 'We’ll email newly found matching roles to '+state.account.email+'. Existing listings are not sent as an initial batch. Quiet days have no job email. You can change or pause alerts here any time.';
       celebrate($('watch-alert-success')); notify(queued ? 'Added to the alert waitlist.' : 'Daily alert preferences saved.');
     } catch(e) { error(e.message,true); }
     finally { alertBusy = false; $('watch-subscribe').disabled = !['active','waitlisted'].includes(state?.account?.status) && !state?.alertsReady; }
@@ -245,6 +259,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   $('watch-selection-chips').addEventListener('click',e => { const b = e.target.closest('[data-remove-company]'); if (b) { selection.delete(b.dataset.removeCompany); renderCompanies(); search(); } });
   $('watch-select-all').addEventListener('click',() => { selection = new Set(companies.filter(c => c.supported).map(c => c.id)); renderCompanies(); search(); });
   $('watch-clear').addEventListener('click',() => { selection.clear(); renderCompanies(); search(); });
+  $('watch-early-career').addEventListener('click',()=>{ $('watch-roles').value='IT support, technical support, help desk'; $('watch-level').value='entry'; renderCompanies(); search(); });
   $('watch-reset').addEventListener('click',resetFilters);
   $('watch-results').addEventListener('click',e => { if (e.target.closest('#watch-empty-reset')) { if (companies.some(c => c.supported && c.lastSuccess)) resetFilters(); else openCompanies(); } else handleJobAction(e); });
   $('job-preview-content').addEventListener('click',handleJobAction);
