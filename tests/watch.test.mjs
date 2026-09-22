@@ -193,6 +193,26 @@ test('Yahoo joins scheduled checks and existing Yahoo requests are recognised as
  }finally{close();}
 });
 
+test('Fidelity saved requests become selectable and join repeat background checks without duplicates',async()=>{
+ const {store,close}=database();try{
+  const a=await user(store),url='https://jobs.fidelity.com/ie/locations/dublin-ireland/';
+  await store.requestCompany(a.id,'Fidelity',url,now);
+  const fetchPage=async(_url,_redirects,_bytes,options)=>JSON.stringify(JSON.parse(options.body).appliedFacets.locations
+   ? {total:1,jobPostings:[{title:'Support Engineer',externalPath:'/job/Dublin-Ireland/Support-Engineer_2135464-2',locationsText:'Dublin, Ireland',bulletFields:['2135464']}]}
+   : {total:825,jobPostings:[],facets:[{facetParameter:'locations',values:[{id:'dublin',descriptor:'Dublin, Ireland'}]}]});
+  assert.ok((await store.sources()).some(s=>s.id==='fidelity'));
+  assert.equal((await checkCompany(store,'fidelity',now,fetchPage)).status,'complete');
+  const company=(await store.catalog(now)).find(s=>s.id==='fidelity');assert.equal(company.supported,true);assert.equal(company.count,1);
+  assert.equal((await store.requests(a.id))[0].connected,true);
+  const preferences=parseWatchPreferences({...EMPTY_PREFERENCES,companies:['fidelity'],city:'Dublin'});
+  assert.equal(matchWatchJobs(await store.jobs(),preferences).length,1);
+  assert.equal((await checkCompany(store,'fidelity',now+86400000,fetchPage)).status,'complete');
+  assert.equal((await store.jobs()).length,1);
+  assert.equal((await checkCompany(store,'fidelity',now+2*86400000,async()=>'{"jobPostings":[]}')).status,'failed');
+  assert.equal((await store.jobs()).length,1,'An unreadable feed must preserve existing jobs');
+ }finally{close();}
+});
+
 test('LinkedIn employer vacancies join scheduled checks, matching and existing careers requests',async()=>{
  const {store,close}=database();try{
   const a=await user(store);

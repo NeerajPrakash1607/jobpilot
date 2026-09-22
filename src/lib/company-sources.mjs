@@ -11,6 +11,7 @@ export const REQUESTED_COMPANIES=[
   {id:'novartis',name:'Novartis',type:'company',adapter:'novartis',home:'https://www.novartis.com/ie-en/careers/career-search',scope:'Ireland',ttl},
   {id:'yahoo',name:'Yahoo',type:'company',adapter:'yahoo',home:'https://www.yahooinc.com/careers/search.html',scope:'Ireland · official Workday board',ttl},
   {id:'linkedin',name:'LinkedIn',type:'company',adapter:'linkedin',home:'https://careers.linkedin.com/',scope:'Ireland · LinkedIn employer vacancies',ttl},
+  {id:'fidelity',name:'Fidelity',type:'company',adapter:'fidelity',home:'https://jobs.fidelity.com/ie/locations/dublin-ireland/',scope:'Ireland · official Fidelity Investments Workday board',ttl},
 ].map(source=>({...source,url:source.home}));
 
 export function companySource(input){
@@ -19,6 +20,7 @@ export function companySource(input){
   if(url.protocol!=='https:'||url.port||/^[\d.]+$/.test(url.hostname))throw new AppError('Use the company’s public HTTPS careers link.');
   if(url.hostname==='mastercard.wd1.myworkdayjobs.com')return {...REQUESTED_COMPANIES.find(s=>s.id==='mastercard')};
   if(url.hostname==='ouryahoo.wd5.myworkdayjobs.com')return {...REQUESTED_COMPANIES.find(s=>s.id==='yahoo')};
+  if(url.hostname==='wd1.myworkdaysite.com'&&/^\/(?:en-US\/)?recruiting\/fmr\/FidelityCareers(?:\/|$)/.test(url.pathname))return {...REQUESTED_COMPANIES.find(s=>s.id==='fidelity')};
   const known=REQUESTED_COMPANIES.find(source=>new URL(source.home).hostname.replace(/^www\./,'')===url.hostname.replace(/^www\./,''));
   if(known)return {...known};
   const parts=url.pathname.split('/').filter(Boolean);

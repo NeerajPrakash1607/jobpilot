@@ -9,6 +9,30 @@ import {getPublicPage} from '../src/lib/public-fetch.mjs';
 
 const ashby={title:'Support Engineer',location:'Dublin, Ireland',jobUrl:'https://jobs.ashbyhq.com/example/11111111-2222-3333-4444-555555555555',descriptionPlain:'Help customers use our software.',isListed:true};
 const linkedInPosting=i=>({id:String(744000150000000+i),name:'Senior Software Engineer',company:{identifier:'LinkedIn3'},visibility:'PUBLIC',location:{city:'Dublin',region:'County Dublin',country:'ie',hybrid:true},releasedDate:'2026-09-17T13:56:35.890Z'});
+test('Fidelity careers links resolve to one selectable Ireland feed and replace saved links',async()=>{
+ const home='https://jobs.fidelity.com/ie/locations/dublin-ireland/';
+ for(const url of [home,'https://jobs.fidelity.com/ie/jobs/?location=Dublin','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/FidelityCareers','https://wd1.myworkdaysite.com/recruiting/fmr/FidelityCareers/job/Dublin-Ireland/Engineer_2135464-2']){
+  const source=companySource({name:'Fidelity',url});assert.equal(source.id,'fidelity');assert.equal(source.type,'company');
+ }
+ for(const url of ['https://jobs.fidelity.com.evil.example/','https://wd1.myworkdaysite.com/en-US/recruiting/other/FidelityCareers','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/OtherBoard'])assert.equal(companySource({name:'Fidelity',url}).type,'website');
+ assert.deepEqual(unconnectedCompanyLinks([{id:'fidelity',name:'Fidelity',url:home,supported:true}],[{name:'Fidelity',url:home,connected:false}]),[]);
+ await assert.rejects(getPublicPage('https://wd1.myworkdaysite.com/wday/cxs/other/OtherBoard/jobs'),/not connected/);
+});
+test('Fidelity checks the official Ireland locations and preserves Workday application links',async()=>{
+ const calls=[],source=companySource({name:'Fidelity',url:'https://jobs.fidelity.com/ie/locations/dublin-ireland/'});
+ const posting=i=>({title:'Software Engineer',externalPath:`/job/Dublin-Ireland/Software-Engineer_${2135464+i}-2`,locationsText:i===20?'Galway, Ireland':'Dublin, Ireland',bulletFields:[String(2135464+i)]});
+ const result=await probeCompany({name:source.name,url:source.home},[],async(url,_redirects,_bytes,options)=>{
+  assert.equal(url,'https://wd1.myworkdaysite.com/wday/cxs/fmr/FidelityCareers/jobs');
+  const body=JSON.parse(options.body);calls.push(body);
+  if(!body.appliedFacets.locations)return JSON.stringify({total:825,jobPostings:[],facets:[{facetParameter:'locationMainGroup',values:[{facetParameter:'locations',values:[{descriptor:'Dublin, Ireland',id:'dublin'},{descriptor:'Galway, Ireland',id:'galway'},{descriptor:'Belfast, Northern Ireland',id:'belfast'}]}]}]});
+  assert.deepEqual(body.appliedFacets,{locations:['dublin','galway']});
+  return JSON.stringify({total:21,jobPostings:body.offset===0?Array.from({length:20},(_,i)=>posting(i)):[posting(20)]});
+ });
+ assert.equal(result.status,'connected');assert.equal(result.feed.jobs.length,21);assert.equal(calls.length,3);
+ assert.equal(result.feed.jobs[0].id,'fidelity-2135464');assert.equal(result.feed.jobs[0].summaryOnly,true);
+ assert.equal(result.feed.jobs[0].url,'https://wd1.myworkdaysite.com/en-US/recruiting/fmr/FidelityCareers/job/Dublin-Ireland/Software-Engineer_2135464-2');
+ await assert.rejects(loadCompanyFeed(source,async()=>'{"total":825,"jobPostings":[]}'),/readable public jobs feed/);
+});
 test('LinkedIn employer careers links share a feed; general LinkedIn job search remains separate',()=>{
  for(const url of ['https://careers.linkedin.com/','https://careers.linkedin.com/locations/dublin','https://careers.smartrecruiters.com/LinkedIn3','https://jobs.smartrecruiters.com/linkedin3/744000150000000']){
   const source=companySource({name:'LinkedIn careers',url});assert.equal(source.id,'linkedin');assert.equal(source.name,'LinkedIn');

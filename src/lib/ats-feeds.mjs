@@ -85,7 +85,10 @@ export async function loadMastercard(fetchPage){
 export async function loadYahoo(fetchPage){
  return loadWorkdayIreland({origin:'https://ouryahoo.wd5.myworkdayjobs.com',tenant:'ouryahoo',board:'careers',name:'Yahoo',idPattern:/^JR\d+$/},fetchPage);
 }
-async function loadWorkdayIreland({origin,tenant,board,name,idPattern},fetchPage){
+export async function loadFidelity(fetchPage){
+ return loadWorkdayIreland({origin:'https://wd1.myworkdaysite.com',tenant:'fmr',board:'FidelityCareers',name:'Fidelity',idPattern:/^\d+(?:-\d+)*$/,postingPath:'/en-US/recruiting/fmr/FidelityCareers'},fetchPage);
+}
+async function loadWorkdayIreland({origin,tenant,board,name,idPattern,postingPath=`/en-US/${board}`},fetchPage){
  const request=async(offset,appliedFacets={})=>workdayPage(await fetchPage(`${origin}/wday/cxs/${tenant}/${board}/jobs`,{
   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appliedFacets,limit:20,offset,searchText:''}),
  }));
@@ -105,7 +108,7 @@ async function loadWorkdayIreland({origin,tenant,board,name,idPattern},fetchPage
   if(typeof path!=='string'||!/^\/job\/[\w/-]+$/.test(path))throw unreadable();
   const id=(Array.isArray(post.bulletFields)?post.bulletFields.find(v=>typeof v==='string'&&idPattern.test(v)):null)||path.split('_').at(-1);if(!idPattern.test(id))throw unreadable();
   const place=plain(post.locationsText);
-  return {id,title:post.title,company:name,url:`${origin}/en-US/${board}${path}`,
+  return {id,title:post.title,company:name,url:`${origin}${postingPath}${path}`,
    // The applied location facets establish Ireland even for multi-location postings.
    location:/\bIreland\b/i.test(place)?place:`Ireland · ${place||'location listed on employer page'}`,
    description:`Listing from ${name}’s official Ireland job board. Open the employer listing for the full requirements.`,summaryOnly:true};

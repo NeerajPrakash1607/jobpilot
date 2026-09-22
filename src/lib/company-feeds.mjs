@@ -1,5 +1,5 @@
 import { AppError, stripHtml } from './domain.mjs';
-import {loadMastercard,loadYahoo,loadLinkedIn,loadLever,loadAshby} from './ats-feeds.mjs';
+import {loadMastercard,loadYahoo,loadFidelity,loadLinkedIn,loadLever,loadAshby} from './ats-feeds.mjs';
 const plain=value=>stripHtml(stripHtml(typeof value==='string'?value:''));
 const fail=name=>new AppError(`${name} changed its careers page. Open the official site to check vacancies.`,502);
 const root='https://fa-ewnd-saasfaprod1.fa.ocs.oraclecloud.com';
@@ -29,6 +29,7 @@ export function parseAmazon(body){
 export async function loadCompanyFeed(source,fetchPage){
   if(source.adapter==='mastercard')return loadMastercard(fetchPage);
   if(source.adapter==='yahoo')return loadYahoo(fetchPage);
+  if(source.adapter==='fidelity')return loadFidelity(fetchPage);
   if(source.adapter==='linkedin')return loadLinkedIn(fetchPage);
   if(source.adapter==='lever')return loadLever(source,fetchPage);
   if(source.adapter==='ashby')return loadAshby(source,fetchPage);
