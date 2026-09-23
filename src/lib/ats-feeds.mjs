@@ -47,23 +47,26 @@ function workdayPage(body){
 }
 // LinkedIn's employer board, not the LinkedIn job-search platform.
 export async function loadLinkedIn(fetchPage){
+ return loadSmartRecruiters({board:'LinkedIn3',name:'LinkedIn'},fetchPage);
+}
+export async function loadSmartRecruiters({board,name},fetchPage){
  const jobs=new Map();let total,partial=false;
  for(let offset=0;offset<1000;offset+=100){
   let page;
   try{
-   page=json(await fetchPage(`https://api.smartrecruiters.com/v1/companies/LinkedIn3/postings?country=ie&destination=PUBLIC&limit=100&offset=${offset}`));
+   page=json(await fetchPage(`https://api.smartrecruiters.com/v1/companies/${board}/postings?country=ie&destination=PUBLIC&limit=100&offset=${offset}`));
    if(!Array.isArray(page?.content)||page.content.length>100||!Number.isInteger(page.totalFound)||page.totalFound<0)throw unreadable();
   }catch(error){if(!offset)throw error;partial=true;break;}
   if(total===undefined)total=page.totalFound;
   else if(total!==page.totalFound)partial=true;
   for(const post of page.content){
    // Unexpected company, visibility or country must never be relabelled as an Irish public vacancy.
-   if(typeof post?.id!=='string'||!/^\d{1,30}$/.test(post.id)||post.company?.identifier!=='LinkedIn3'||post.visibility!=='PUBLIC'||typeof post.location?.country!=='string'||post.location.country.toLowerCase()!=='ie'){
+   if(typeof post?.id!=='string'||!/^\d{1,30}$/.test(post.id)||typeof post.company?.identifier!=='string'||post.company.identifier.toLowerCase()!==board.toLowerCase()||post.visibility!=='PUBLIC'||typeof post.location?.country!=='string'||post.location.country.toLowerCase()!=='ie'){
     partial=true;continue;
    }
-   jobs.set(post.id,{id:post.id,title:post.name,url:`https://jobs.smartrecruiters.com/LinkedIn3/${post.id}`,
+   jobs.set(post.id,{id:post.id,title:post.name,url:`https://jobs.smartrecruiters.com/${board}/${post.id}`,
     location:locations([plain(post.location.city),plain(post.location.region),'Ireland',post.location.remote===true?'Remote':post.location.hybrid===true?'Hybrid':'']),
-    description:'Listing from LinkedIn’s official Ireland careers board. Open the employer listing for the full requirements.',
+    description:`Listing from ${name}’s public Ireland careers board. Open the employer listing for the full requirements.`,
     listingDate:post.releasedDate,summaryOnly:true});
   }
   if(offset+page.content.length>=total||page.content.length<100)break;
@@ -71,11 +74,11 @@ export async function loadLinkedIn(fetchPage){
  if(total>0&&!jobs.size)throw unreadable();
  return JSON.stringify({jobs:[...jobs.values()],total,partial:partial||jobs.size!==total});
 }
-function locationFacets(facets){
+function locationFacets(facets,parameter='locations'){
  if(!Array.isArray(facets))throw unreadable();
  for(const facet of facets){
-  if(facet?.facetParameter==='locations'&&Array.isArray(facet.values))return facet.values;
-  if(Array.isArray(facet?.values)){const found=locationFacets(facet.values);if(found)return found;}
+  if(facet?.facetParameter===parameter&&Array.isArray(facet.values))return facet.values;
+  if(Array.isArray(facet?.values)){const found=locationFacets(facet.values,parameter);if(found)return found;}
  }
  return null;
 }
@@ -88,25 +91,29 @@ export async function loadYahoo(fetchPage){
 export async function loadFidelity(fetchPage){
  return loadWorkdayIreland({origin:'https://wd1.myworkdaysite.com',tenant:'fmr',board:'FidelityCareers',name:'Fidelity',idPattern:/^\d+(?:-\d+)*$/,postingPath:'/en-US/recruiting/fmr/FidelityCareers'},fetchPage);
 }
-async function loadWorkdayIreland({origin,tenant,board,name,idPattern,postingPath=`/en-US/${board}`},fetchPage){
+export async function loadWorkdayIreland({origin,tenant,board,name,idPattern,postingPath=`/en-US/${board}`},fetchPage){
  const request=async(offset,appliedFacets={})=>workdayPage(await fetchPage(`${origin}/wday/cxs/${tenant}/${board}/jobs`,{
   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appliedFacets,limit:20,offset,searchText:''}),
  }));
  const index=await request(0);
  if(index.total===0)return JSON.stringify({jobs:[],total:0,partial:false});
- const available=locationFacets(index.facets);
+ const countryValues=locationFacets(index.facets,'locationCountry');
+ const parameter=countryValues?'locationCountry':'locations';
+ const available=countryValues||locationFacets(index.facets);
  if(!available)throw unreadable();
  const ireland=available.filter(f=>/\bIreland\b/i.test(f.descriptor||'')&&!/Northern Ireland/i.test(f.descriptor)).map(f=>f.id);
  if(ireland.some(id=>typeof id!=='string'||!/^\w+$/.test(id)))throw unreadable();
  if(!ireland.length)return JSON.stringify({jobs:[],total:0,partial:false});
- const facets={locations:ireland},first=await request(0,facets),raw=[...first.jobPostings];
+ const facets={[parameter]:ireland},first=await request(0,facets),raw=[...first.jobPostings];
  for(let offset=20;offset<first.total&&offset<200;offset+=20){
   try{const page=await request(offset,facets);if(!page.jobPostings.length)break;raw.push(...page.jobPostings);}catch{break;}
  }
  const jobs=raw.map(post=>{
   const path=post?.externalPath;
   if(typeof path!=='string'||!/^\/job\/[\w/-]+$/.test(path))throw unreadable();
-  const id=(Array.isArray(post.bulletFields)?post.bulletFields.find(v=>typeof v==='string'&&idPattern.test(v)):null)||path.split('_').at(-1);if(!idPattern.test(id))throw unreadable();
+  // Generic boards use the stable requisition in the URL, not arbitrary bullet labels.
+  const id=(idPattern&&Array.isArray(post.bulletFields)?post.bulletFields.find(v=>typeof v==='string'&&idPattern.test(v)):null)||path.split('_').at(-1);
+  if(!(idPattern||/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/).test(id))throw unreadable();
   const place=plain(post.locationsText);
   return {id,title:post.title,company:name,url:`${origin}${postingPath}${path}`,
    // The applied location facets establish Ireland even for multi-location postings.

@@ -167,10 +167,10 @@ test('new connected boards survive reload and participate in scheduled checks, p
 test('unsupported and failed connections never become scheduled feeds',async()=>{
  const {db,store,close}=database();try{
   const a=await user(store),before=(await store.sources()).length;
-  const unsupported=await connectCompany(store,a.id,{name:'Unknown',url:'https://example.org/careers'},now,async()=>{throw Error('must not fetch arbitrary sites');});
+  const unsupported=await connectCompany(store,a.id,{name:'Unknown',url:'https://example.org/careers'},now,async()=>{throw Error('must not fetch arbitrary feeds');},async url=>({url,html:'<h1>Careers</h1>'}));
   assert.equal(unsupported.status,'unsupported');assert.equal((await store.requests(a.id))[0].connected,false);
-  assert.match(unsupported.message,/Greenhouse, Lever or Ashby/);
-  const repeated=await connectCompany(store,a.id,{name:'Unknown',url:'https://example.org/careers'},now+1);
+  assert.match(unsupported.message,/Greenhouse, Lever, Ashby, Workday or SmartRecruiters/);
+  const repeated=await connectCompany(store,a.id,{name:'Unknown',url:'https://example.org/careers'},now+1,undefined,async url=>({url,html:'<h1>Careers</h1>'}));
   assert.equal(repeated.status,'unsupported');assert.equal((await store.requests(a.id)).length,1);
   await assert.rejects(connectCompany(store,a.id,{name:'Offline',url:'https://jobs.ashbyhq.com/offline'},now,async()=>{throw Error('HTTP 403');}),/blocks automated access/);
   assert.equal((await store.sources()).length,before);
@@ -298,5 +298,22 @@ test('a verified connection is public but requester identity and watchlists rema
   assert.ok(data.companies.some(s=>s.id===connected.id));assert.ok(!JSON.stringify(data).includes(one.email));
   assert.deepEqual((await store.account(two.id)).preferences.companies,[]);
   assert.deepEqual(await store.requests(two.id),[]);
+ }finally{close();}
+});
+
+test('automatic discovery promotes an existing saved page and persists its feed for later checks',async()=>{
+ const {db,store,close}=database();try{
+  const a=await user(store),input={name:'Discovered Example',url:'https://careers.acme.com/jobs'};
+  await store.requestCompany(a.id,input.name,input.url,now);
+  const fetchCareers=async url=>({url,html:'<a href="https://jobs.ashbyhq.com/discovered-example">Open positions</a>'});
+  const fetchFeed=async()=>JSON.stringify({jobs:[{title:'Junior Engineer',jobUrl:'https://jobs.ashbyhq.com/discovered-example/one',location:'Dublin, Ireland',descriptionPlain:'Help customers with software.',isListed:true}]});
+  const first=await connectCompany(store,a.id,input,now+1,fetchFeed,fetchCareers);
+  assert.equal(first.id,'ashby-discovered-example');assert.equal(first.count,1);
+  const reloaded=watchStore(db),requests=await reloaded.requests(a.id);
+  assert.equal(requests.length,1);assert.equal(requests[0].connected,true);assert.equal(requests[0].url,input.url);
+  assert.equal((await reloaded.account(a.id)).status,'inactive');assert.deepEqual((await reloaded.account(a.id)).preferences.companies,[]);
+  const next=await checkCompany(reloaded,first.id,now+86400000,fetchFeed);assert.equal(next.status,'complete');assert.equal(next.count,1);
+  await connectCompany(reloaded,a.id,input,now+86400001,fetchFeed,fetchCareers);
+  assert.equal((await reloaded.sources()).filter(s=>s.id===first.id).length,1);assert.equal((await reloaded.requests(a.id)).length,1);
  }finally{close();}
 });

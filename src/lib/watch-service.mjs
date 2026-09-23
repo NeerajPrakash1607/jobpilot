@@ -5,6 +5,7 @@ import {loadCompanyFeed} from './company-feeds.mjs';
 import {irelandReason,digestSelection,dublinDay} from './watch-domain.mjs';
 import {unsubscribeToken} from './watch-auth.mjs';
 import {probeCompany,connectionError} from './company-connections.mjs';
+import {getCareersPage} from './careers-discovery.mjs';
 
 export async function checkCompany(store,id,now,fetchPage=getPublicPage){
  const source=(await store.sources()).find(s=>s.id===id);if(!source||source.type==='website')throw new AppError('This company is not connected for automatic listings.',422);
@@ -20,14 +21,14 @@ export async function checkCompany(store,id,now,fetchPage=getPublicPage){
  await store.saveSnapshot(source,token,snapshot,now);
  return {id,status:snapshot.kind==='failed'?'failed':snapshot.complete?'complete':'partial',count:snapshot.jobs?.length||0};
 }
-export async function connectCompany(store,accountId,input,now,fetchPage=getPublicPage){
- const sources=await store.sources(),result=await probeCompany(input,sources,fetchPage);
+export async function connectCompany(store,accountId,input,now,fetchPage=getPublicPage,fetchCareers=getCareersPage){
+ const sources=await store.sources(),result=await probeCompany(input,sources,fetchPage,fetchCareers);
  if(result.status==='unsupported'){
   await store.requestCompany(accountId,result.source.name,result.source.home,now);
-  return {status:'unsupported',message:'Connection requested. No completion date is promised. '+result.message};
+  return {status:'unsupported',message:result.message};
  }
  const {source,feed}=result;
- if(!sources.some(s=>s.id===source.id))await store.addSource(accountId,source,now);
+ await store.addSource(accountId,source,now,result.submitted);
  const token=crypto.randomUUID();
  if(await store.claimSource(source.id,token,now,0))await store.saveSnapshot(source,token,{kind:'success',jobs:feed.jobs.filter(irelandReason),complete:!feed.partial&&!feed.skipped,skipped:feed.skipped},now);
  return {id:source.id,name:source.name,status:result.status,count:feed.jobs.filter(irelandReason).length,message:'Connected for daily background checks. Select this company and save your watchlist to include it in your alerts.'};

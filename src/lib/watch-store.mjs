@@ -21,13 +21,14 @@ export function watchStore(db){
  }
  return {
   account,sources,
-  async addSource(accountId,source,now){
+  async addSource(accountId,source,now,submitted=source){
    const requested=await all('SELECT url FROM watch_requests WHERE account_id=?',accountId);
-   if(requested.length>=20&&!requested.some(r=>r.url===source.home))throw new AppError('You can connect or request up to 20 companies.',409);
+   if(requested.length>=20&&!requested.some(r=>r.url===submitted.home))throw new AppError('You can connect or request up to 20 companies.',409);
    const definition=JSON.stringify({name:source.name,url:source.home});
-   await stmt('INSERT INTO watch_sources(id,definition) SELECT ?,? WHERE (SELECT COUNT(*) FROM watch_sources WHERE definition IS NOT NULL)<50 ON CONFLICT(id) DO NOTHING',source.id,definition).run();
+   if(WATCH_SOURCES.some(s=>s.id===source.id))await stmt('INSERT OR IGNORE INTO watch_sources(id) VALUES(?)',source.id).run();
+   else await stmt('INSERT INTO watch_sources(id,definition) SELECT ?,? WHERE (SELECT COUNT(*) FROM watch_sources WHERE definition IS NOT NULL)<50 ON CONFLICT(id) DO NOTHING',source.id,definition).run();
    if(!await stmt('SELECT id FROM watch_sources WHERE id=?',source.id).first())throw new AppError('The free pilot’s company limit has been reached. Please request this company later.',409);
-   await stmt('INSERT INTO watch_requests(id,account_id,name,url,created_at) VALUES(?,?,?,?,?) ON CONFLICT(account_id,url) DO NOTHING',crypto.randomUUID(),accountId,source.name,source.home,now).run();
+   await stmt('INSERT INTO watch_requests(id,account_id,name,url,created_at,source_id) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,url) DO UPDATE SET source_id=excluded.source_id',crypto.randomUUID(),accountId,submitted.name,submitted.home,now,source.id).run();
   },
   async catalog(now){const rows=await all('SELECT * FROM watch_sources');const records=new Map(rows.map(r=>[r.id,r]));
    return (await sources()).map(source=>{const r=records.get(source.id);return {id:source.id,name:source.name,url:source.home,scope:source.scope||'Employer board',supported:source.type!=='website',health:sourceHealth(source,r,now),lastAttempt:r?.last_attempt||null,lastSuccess:r?.last_success||null,count:r?.count||0,skipped:r?.skipped||0,partial:!!r?.partial,failureDays:r?.failure_days||0,outageStarted:r?.outage_started||null,note:r?.error||source.note||''};});
@@ -80,7 +81,7 @@ export function watchStore(db){
    const result=await stmt('INSERT INTO watch_requests(id,account_id,name,url,created_at) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM watch_requests WHERE account_id=?)<20 ON CONFLICT(account_id,url) DO NOTHING',crypto.randomUUID(),id,name,url,now,id).run();
    if(!result.meta.changes&&!await stmt('SELECT id FROM watch_requests WHERE account_id=? AND url=?',id,url).first())throw new AppError('You have reached 20 company requests.',409);
   },
-  async requests(id){const connected=await sources();return (await all('SELECT name,url,created_at FROM watch_requests WHERE account_id=? ORDER BY created_at DESC',id)).map(r=>({...r,connected:connected.some(s=>s.type!=='website'&&(s.home===r.url||s.url===companySource(r).url))}));},
+  async requests(id){const connected=await sources();return (await all('SELECT name,url,created_at,source_id FROM watch_requests WHERE account_id=? ORDER BY created_at DESC',id)).map(r=>({...r,connected:connected.some(s=>s.type!=='website'&&(s.id===r.source_id||s.home===r.url||s.url===companySource(r).url))}));},
   async activeAccounts(){return (await all("SELECT * FROM watch_accounts WHERE status='active' ORDER BY opted_at")).map(asAccount);},
   async delivered(id){return new Set((await all('SELECT job_id FROM watch_delivered_jobs WHERE account_id=?',id)).map(r=>r.job_id));},
   async pendingOutages(id,catalog){

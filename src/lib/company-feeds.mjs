@@ -1,5 +1,5 @@
 import { AppError, stripHtml } from './domain.mjs';
-import {loadMastercard,loadYahoo,loadFidelity,loadLinkedIn,loadLever,loadAshby} from './ats-feeds.mjs';
+import {loadMastercard,loadYahoo,loadFidelity,loadLinkedIn,loadLever,loadAshby,loadSmartRecruiters,loadWorkdayIreland} from './ats-feeds.mjs';
 const plain=value=>stripHtml(stripHtml(typeof value==='string'?value:''));
 const fail=name=>new AppError(`${name} changed its careers page. Open the official site to check vacancies.`,502);
 const root='https://fa-ewnd-saasfaprod1.fa.ocs.oraclecloud.com';
@@ -27,6 +27,8 @@ export function parseAmazon(body){
   return {total:data.found,jobs:data.searchHits.map(({fields:f})=>({id:f.icimsJobId?.[0],title:f.title?.[0],company:'Amazon',url:`https://www.amazon.jobs/en/jobs/${f.icimsJobId?.[0]}`,location:f.normalizedLocation?.[0]?.replace(/\bIRL\b/g,'Ireland')||[f.city?.[0],f.region?.[0],f.countryIso3a?.[0]==='IRL'?'Ireland':f.countryIso3a?.[0]].filter(Boolean).join(', '),description:plain(f.description?.[0]),listingDate:f.updatedDate?.[0],summaryOnly:false}))};
 }
 export async function loadCompanyFeed(source,fetchPage){
+  if(source.adapter==='smartrecruiters')return loadSmartRecruiters(source,fetchPage);
+  if(source.adapter==='workday')return loadWorkdayIreland(source,fetchPage);
   if(source.adapter==='mastercard')return loadMastercard(fetchPage);
   if(source.adapter==='yahoo')return loadYahoo(fetchPage);
   if(source.adapter==='fidelity')return loadFidelity(fetchPage);

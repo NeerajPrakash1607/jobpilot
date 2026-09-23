@@ -79,7 +79,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     const matches = directory.filter(c => c.name.toLowerCase().includes(query));
     $('watch-companies').innerHTML = matches.length ? matches.map(c => c.supported
       ? `<div class="company-choice ${selection.has(c.id) ? 'selected':''}"><label><input type="checkbox" data-watch-company="${escape(c.id)}" ${selection.has(c.id) ? 'checked':''}><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.lastSuccess ? `${c.count} Ireland / eligible remote jobs` : 'Count not available yet'} · ${healthNames[c.health]}</span></span></label><details class="company-coverage"><summary>Coverage</summary><p>Last successful check: ${when(c.lastSuccess)}${c.partial ? '. Some employer listings may be missing.':''}${c.note ? '. '+escape(c.note):''}</p><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Official careers page ↗</a></details></div>`
-      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.ready ? 'Saved careers link · Ready to connect':'Connection requested · Automatic checking unavailable'}</span></span></div><div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready ? 'Review and connect':'Change link'}</button></div><details class="company-coverage"><summary>About this link</summary><p>${escape(c.message)}</p></details></div>`
+      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.ready ? 'Saved careers link · Ready to connect':'Saved link · Not connected'}</span></span></div><div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready ? 'Review and connect':'Retry connection'}</button></div><details class="company-coverage"><summary>About this link</summary><p>${escape(c.message)}</p></details></div>`
     ).join('') : `<p class="company-no-match">${query ? `“${escape($('watch-company-filter').value)}” isn’t in your list yet. Add its careers page below.` : 'The company directory is loading.'}</p>`;
     $('watch-companies').scrollTop = scroll;
     if (focusId) [...$('watch-companies').querySelectorAll('input')].find(el => el.dataset.watchCompany === focusId)?.focus({preventScroll:true});
@@ -234,13 +234,13 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   $('watch-company-signin').addEventListener('click',() => { closeDialog('company-dialog'); openAlerts('company'); });
   $('watch-request-form').addEventListener('submit',async e => {
     e.preventDefault(); const button = e.target.querySelector('button'); if (button.disabled) return;
-    button.disabled = true; $('watch-request-message').textContent = 'Checking the careers page…';
+    button.disabled = true; $('watch-request-message').textContent = 'Looking for a public job board and checking its jobs…';
     try {
       const input = Object.fromEntries(new FormData(e.target));
       const r = await api('/connect',input); state.requests = r.requests;
       if (r.id) { selection.add(r.id); await search(); }
       $('watch-company-filter').value = r.name || input.name; renderCompanies(); $('watch-companies').scrollTop = 0; e.target.reset();
-      $('watch-request-message').textContent = r.id ? `${r.name} is connected and selected. Its jobs are checked daily. Use “Email me matching jobs” to include this search in your alerts.` : `${input.name} now appears in your company list. ${r.message}`;
+      $('watch-request-message').textContent = r.id ? `${r.name} is connected and selected. ${r.count === 0 ? 'No Ireland / eligible remote jobs were found yet.' : `${r.count} Ireland / eligible remote jobs found.`}${r.status === 'partial' ? ' Coverage is partial; some listings may be missing.' : ''} Its jobs are checked daily. Use “Email me matching jobs” to include this search in your alerts.` : `${input.name} now appears in your company list. ${r.message}`;
       if (r.id) celebrate(button);
     } catch(err) { $('watch-request-message').textContent = err.message; }
     finally { button.disabled = !state?.account; }
@@ -252,6 +252,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     form.elements.name.value = entry.name; form.elements.url.value = entry.url;
     $('watch-request-message').textContent = entry.message;
     form.elements.url.focus(); form.elements.url.select();
+    if (state?.account) form.requestSubmit();
   });
   $('watch-filter-form').addEventListener('submit',e => { e.preventDefault(); search(); });
   $('watch-company-filter').addEventListener('input',renderCompanies);

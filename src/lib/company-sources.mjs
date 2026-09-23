@@ -29,11 +29,20 @@ export function companySource(input){
   const board=greenhouse&&parts[0]==='embed'?url.searchParams.get('for'):parts[0];
   if(greenhouse&&/^[-a-zA-Z0-9_]{1,100}$/.test(board||''))return {id:`greenhouse-${board}`,name,type:'greenhouse',board,url:`https://boards-api.greenhouse.io/v1/boards/${board}/jobs?content=true`,home:`https://job-boards.greenhouse.io/${board}`,ttl};
   if(/^[-a-zA-Z0-9_]{1,100}$/.test(parts[0]||'')){
+    if(['careers.smartrecruiters.com','jobs.smartrecruiters.com'].includes(url.hostname))return {id:`smartrecruiters-${parts[0].toLowerCase()}`,name,type:'company',adapter:'smartrecruiters',board:parts[0],home:`https://careers.smartrecruiters.com/${parts[0]}`,url:`https://api.smartrecruiters.com/v1/companies/${parts[0]}/postings`,scope:'Ireland · public employer board',ttl};
     if(['jobs.lever.co','jobs.eu.lever.co'].includes(url.hostname)){
       const region=url.hostname==='jobs.eu.lever.co'?'eu':'global';
       return {id:`lever-${region}-${parts[0]}`,name,type:'company',adapter:'lever',board:parts[0],home:`https://${url.hostname}/${parts[0]}`,url:`https://${region==='eu'?'api.eu.lever.co':'api.lever.co'}/v0/postings/${parts[0]}?mode=json`,scope:'Lever public job board',ttl};
     }
     if(url.hostname==='jobs.ashbyhq.com')return {id:`ashby-${parts[0]}`,name,type:'company',adapter:'ashby',board:parts[0],home:`https://jobs.ashbyhq.com/${parts[0]}`,url:`https://api.ashbyhq.com/posting-api/job-board/${parts[0]}?includeCompensation=true`,scope:'Ashby public job board',ttl};
+  }
+  const workdayHost=url.hostname.match(/^([a-z0-9-]+)\.wd\d+\.myworkdayjobs\.com$/);
+  const path=parts.filter((part,index)=>index!==0||!/^\w{2}-\w{2}$/.test(part));
+  const sharedHost=/^wd\d+\.myworkdaysite\.com$/.test(url.hostname)&&path[0]==='recruiting';
+  const tenant=workdayHost?.[1]||(sharedHost?path[1]:null),workdayBoard=workdayHost?path[0]:sharedHost?path[2]:null;
+  if(tenant&&/^[-a-zA-Z0-9_]{1,80}$/.test(tenant)&&/^[-a-zA-Z0-9_]{1,100}$/.test(workdayBoard||'')&&!['wday','login','recruiting'].includes(workdayBoard)){
+    const postingPath=sharedHost?`/en-US/recruiting/${tenant}/${workdayBoard}`:`/en-US/${workdayBoard}`;
+    return {id:`workday-${bytesToHex(sha256(new TextEncoder().encode(url.origin+'/'+tenant+'/'+workdayBoard))).slice(0,20)}`,name,type:'company',adapter:'workday',origin:url.origin,tenant,board:workdayBoard,postingPath,home:url.origin+postingPath,url:`${url.origin}/wday/cxs/${tenant}/${workdayBoard}/jobs`,scope:'Ireland · public Workday board',ttl};
   }
   // Other official career pages can be kept in the company list without claiming an automatic feed.
   url.hash='';url.search='';
@@ -43,13 +52,14 @@ export function companySource(input){
 export function unsupportedSourceReason(source){
   const host=new URL(source.home).hostname;
   if(host==='linkedin.com'||host.endsWith('.linkedin.com'))return 'JobPilot does not import LinkedIn job-search pages. Add the employer’s own Greenhouse, Lever or Ashby board link instead, or browse this link on LinkedIn.';
-  return source.note||'This careers site has no automatic connector in JobPilot. Use its Greenhouse, Lever or Ashby board link if available. Saving a link alone does not start syncing.';
+  return source.note||'No supported public job board was found. Try its vacancies page or a direct Greenhouse, Lever, Ashby, Workday or SmartRecruiters link. This saved link does not provide job counts or alerts.';
 }
 
 export function unconnectedCompanyLinks(companies,requests=[],legacy=[]){
   const entries=new Map();
   const candidates=[...companies.filter(c=>!c.supported),...requests.filter(r=>!r.connected),...legacy.map(c=>({name:c.name,url:c.home}))];
   for(const item of candidates){
+    if(requests.some(r=>r.connected&&r.url===item.url))continue;
     const source=companySource(item);
     if(companies.some(c=>c.supported&&(c.id===source.id||c.url===source.home)))continue;
     const ready=source.type!=='website';

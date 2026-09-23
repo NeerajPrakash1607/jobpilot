@@ -14,9 +14,9 @@ test('Fidelity careers links resolve to one selectable Ireland feed and replace 
  for(const url of [home,'https://jobs.fidelity.com/ie/jobs/?location=Dublin','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/FidelityCareers','https://wd1.myworkdaysite.com/recruiting/fmr/FidelityCareers/job/Dublin-Ireland/Engineer_2135464-2']){
   const source=companySource({name:'Fidelity',url});assert.equal(source.id,'fidelity');assert.equal(source.type,'company');
  }
- for(const url of ['https://jobs.fidelity.com.evil.example/','https://wd1.myworkdaysite.com/en-US/recruiting/other/FidelityCareers','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/OtherBoard'])assert.equal(companySource({name:'Fidelity',url}).type,'website');
+ for(const url of ['https://jobs.fidelity.com.evil.example/','https://wd1.myworkdaysite.com/en-US/recruiting/other/FidelityCareers','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/OtherBoard'])assert.notEqual(companySource({name:'Fidelity',url}).id,'fidelity');
  assert.deepEqual(unconnectedCompanyLinks([{id:'fidelity',name:'Fidelity',url:home,supported:true}],[{name:'Fidelity',url:home,connected:false}]),[]);
- await assert.rejects(getPublicPage('https://wd1.myworkdaysite.com/wday/cxs/other/OtherBoard/jobs'),/not connected/);
+ await assert.rejects(getPublicPage('https://wd1.myworkdaysite.com/wday/cxs/other/OtherBoard/private'),/not connected/);
 });
 test('Fidelity checks the official Ireland locations and preserves Workday application links',async()=>{
  const calls=[],source=companySource({name:'Fidelity',url:'https://jobs.fidelity.com/ie/locations/dublin-ireland/'});
@@ -37,7 +37,7 @@ test('LinkedIn employer careers links share a feed; general LinkedIn job search 
  for(const url of ['https://careers.linkedin.com/','https://careers.linkedin.com/locations/dublin','https://careers.smartrecruiters.com/LinkedIn3','https://jobs.smartrecruiters.com/linkedin3/744000150000000']){
   const source=companySource({name:'LinkedIn careers',url});assert.equal(source.id,'linkedin');assert.equal(source.name,'LinkedIn');
  }
- for(const url of ['https://www.linkedin.com/jobs/search/','https://www.linkedin.com/company/linkedin/jobs/','https://careers.smartrecruiters.com/AnotherCompany','https://careers.linkedin.com.evil.example/'])assert.equal(companySource({name:'LinkedIn',url}).type,'website');
+ for(const url of ['https://www.linkedin.com/jobs/search/','https://www.linkedin.com/company/linkedin/jobs/','https://careers.linkedin.com.evil.example/'])assert.equal(companySource({name:'LinkedIn',url}).type,'website');
  assert.deepEqual(unconnectedCompanyLinks([{id:'linkedin',name:'LinkedIn',url:'https://careers.linkedin.com/',supported:true}],[{name:'LinkedIn careers',url:'https://careers.linkedin.com/',connected:false}],[{name:'Old LinkedIn board',home:'https://careers.smartrecruiters.com/LinkedIn3'}]),[]);
 });
 test('LinkedIn public Ireland feed paginates and preserves direct job links and advertised details',async()=>{
@@ -63,13 +63,13 @@ test('LinkedIn failures and invalid rows never become a successful empty Ireland
  assert.equal(interrupted.jobs.length,100);assert.equal(interrupted.partial,true);
  const empty=parseFeed(source,await loadCompanyFeed(source,async()=>'{"totalFound":0,"content":[]}'));assert.equal(empty.jobs.length,0);assert.equal(empty.partial,false);
 });
-test('board links become canonical supported feeds, arbitrary URLs remain unfetched links',async()=>{
+test('board links become canonical feeds; unknown HTML never enters the feed fetcher',async()=>{
  assert.equal(companySource({name:'Example',url:'https://jobs.eu.lever.co/example/123'}).url,'https://api.eu.lever.co/v0/postings/example?mode=json');
  assert.equal(companySource({name:'Example',url:ashby.jobUrl}).id,'ashby-example');
  assert.equal(companySource({name:'Example',url:'https://boards.greenhouse.io/embed/job_board?for=example'}).board,'example');
  let calls=0;
  for(const url of ['https://example.com/careers','https://jobs.ashbyhq.com.evil.example/example']){
-  const r=await probeCompany({name:'Example',url},[],async()=>{calls++;throw Error('must not fetch');});assert.equal(r.status,'unsupported');
+  const r=await probeCompany({name:'Example',url},[],async()=>{calls++;throw Error('must not fetch');},async url=>({url,html:'<h1>Careers</h1>'}));assert.equal(r.status,'unsupported');
  }
  assert.equal(calls,0);
  for(const url of ['https://127.0.0.1/jobs','http://jobs.lever.co/example','https://api.lever.co:8443/jobs'])assert.throws(()=>companySource({name:'Example',url}));
@@ -134,8 +134,8 @@ test('Yahoo careers links use its public Workday Ireland feed and preserve vacan
 });
 
 test('unsupported connections explain the missing feed rather than promising a pending check',async()=>{
- const generic=await probeCompany({name:'Unknown',url:'https://example.org/careers'});
- assert.match(generic.message,/Greenhouse, Lever or Ashby/);
+ const generic=await probeCompany({name:'Unknown',url:'https://example.org/careers'},[],undefined,async url=>({url,html:'<h1>Careers</h1>'}));
+ assert.match(generic.message,/Greenhouse, Lever, Ashby, Workday or SmartRecruiters/);
  const linkedin=await probeCompany({name:'LinkedIn',url:'https://www.linkedin.com/jobs/search/'});
  assert.match(linkedin.message,/LinkedIn job-search/);
  assert.match(linkedin.message,/employer/);
