@@ -1,112 +1,111 @@
 # JobPilot
 
-A working local application assistant: find live job openings, compare them with your résumé, prepare an editable introduction, fill and submit supported application forms you explicitly approve in Chrome or Edge, and record detected confirmations.
+[Open the live website](https://jobpilot-neeraj.bhanuprakash0024.chatgpt.site/)
 
-## Run locally
+Ireland company watchlists, job discovery, application tracking, résumé rearranging and an optional browser companion. The shared employer catalogue is public. Every visitor's private résumé workspace starts empty; no personal profile, résumé, application database or pairing key is shipped with the app.
 
-Requires Node.js **22.16+**. Clone this repository, then run:
+This repository contains the current web application (version 3). It replaces the earlier local-only Node server; that implementation remains available in Git history. The web app uses JavaScript, a Cloudflare Worker-compatible server, D1 with Drizzle migrations, IndexedDB for the private browser workspace, and a private Google Apps Script scheduler for daily checks and email delivery.
 
-```sh
-npm start
-```
+## Find jobs
 
-Open [JobPilot at localhost:5181](http://127.0.0.1:5181). Keep the terminal running. No npm dependencies or build step are required. macOS users can also run `zsh launch.command`.
+Browse Ireland and eligible remote jobs without registering. **Quick start** offers an optional three-question form for role, location and experience. It searches all connected employers without signing in or changing email preferences. Closing the guide leaves the current search untouched. One Find jobs page combines company search and the job catalogue in compact rows. Role, location and company are the primary filters; experience and working arrangement are under More filters. Save keeps a role in My applications on this browser. Apply opens the employer website without recording a submission. Click a role title for its description and coverage details.
 
-A fresh checkout starts with an empty profile and no résumé. Open **Your profile**, enter your details, and upload your own PDF. PDF text extraction requires Python 3 and `pypdf`:
+The default palette uses dark wine and plum surfaces with muted gold accents. The on-screen résumé preview follows the dark theme; downloaded documents keep their existing formatting. Other colour themes remain available under More tools. On desktop, filters sit beside the results. Phones use a collapsible search panel, bottom navigation and a full-width job details sheet. A short paper-plane takeoff accompanies searching, and saving sends the plane toward My applications. Motion stops when the page is hidden and respects reduced-motion preferences; loading more jobs only animates the new rows.
 
-```sh
-python3 -m pip install pypdf
-```
+**New since last visit** highlights and filters jobs first discovered after the previous visit in this browser. First visits establish a baseline; refreshes within 30 minutes keep the same highlights. Only successful searches update visit history. This browsing preference does not change email alerts.
 
-The app detects a bundled Codex Python runtime when available. Otherwise it uses `python3`; `JOBPILOT_PYTHON` can select another executable. Enter or correct résumé text in Profile before preparing applications.
+Refreshing the page or clicking the desktop/mobile JobPilot logo starts a new search with empty filters and no selected company checkboxes (All companies). Saved applications, sign-in and email-alert preferences are retained. Use **Use my saved alert search** to restore alert filters explicitly. Company lists, selected-company chips and alert summaries display names alphabetically.
 
-Use `JOBPILOT_PORT` to change the port and `JOBPILOT_DATA_DIR` for a different data directory. The server binds only to `127.0.0.1`. It is a local application, not a hosted multi-user service.
+Open **Company**, search by name, then choose **Add its careers page** if it is missing. Sign in and use **Check and connect**. JobPilot inspects a public HTTPS careers page and up to two linked vacancies pages on the same origin, discovers supported boards, then verifies the feed before connecting. Greenhouse, Lever (global/EU), Ashby, Workday and SmartRecruiters boards are recognised automatically. Multiple candidate boards require a more specific link; login, anti-bot challenges, script-only pages and unsupported systems remain saved links with a **Retry connection** action. Connection failures retain their explanation and last attempt time in the account, with separate retry and change-link actions. Failed feed checks remain saved links, never empty connected feeds. JobPilot does not bypass access controls or promise coverage of every employer. Workday and SmartRecruiters imports are Ireland listings with summary details; partial feeds are labelled. Verified connections appear in the searchable A–Z directory, with counts and company selection, and join the existing Apps Script daily checking cycle without script changes. The original careers link is linked to the verified source, so retrying a saved request does not leave a duplicate unconnected row. Connecting never subscribes someone to email: select the company and save the alert watchlist separately. This free pilot permits 50 added boards and 20 additions/requests per account.
 
-Your résumé, profile, pairing key, applications and backups are created locally and are not included in this repository. The `.gitignore` excludes local databases, PDFs, environment files and backups.
+Discovery is bounded to three HTML pages, three redirects per page, one megabyte per page and a shared 20-second timeout. Every fetched destination must be public HTTPS with public A/AAAA records, including redirects; discovery sends no account cookies or credentials. Feed downloads retain a separate provider allowlist. Only literal links/embeds and provider URLs are inspected—page scripts are not executed.
 
-## Application workflow
+**Email me matching jobs** opens one review-and-confirm flow. Signing in preserves the search already chosen; the visitor reviews the actual companies and filters, explicitly opts in, then confirms. With no company filter, the review lists all currently connected companies. Existing subscribers use Save alert changes, pause, or unsubscribe. Adding a company alone does not change an existing email subscription. Active and waitlisted outcomes are distinct. Short motion accompanies actual saves and alert confirmations; reduced-motion preferences disable it.
 
-1. **Your profile:** Review your contact details, résumé text, and additional skills. Upload your own PDF and review the extracted text. PDF extraction happens locally; no résumé is sent to an AI provider.
-2. **Find jobs:** Open Find jobs or click Find jobs for me. The first search uses your profile’s target role and location. Edit the keywords, separate alternatives with commas, include eligible-region remote listings, and optionally hide senior/management titles. Results show full descriptions, source links, and résumé skill overlap. Click Save role to add a listing directly to Applications, then open it to prepare. Your last search is remembered. Import a role remains available for a specific listing found elsewhere.
-3. **Prepare:** JobPilot compares recognised skills in the description against your résumé and skills. It reports actual keyword overlap and gaps. The number is not a hiring probability. The introduction uses your supplied information; it is a deterministic draft, not an AI-generated claim about your qualifications. Edit and save it. Download an application text pack when useful.
-4. **Choose:** Open the employer’s HTTPS application form in Chrome or Edge. In the companion, select the prepared role, verify the form belongs to it, and review your contact details, résumé filename and saved introduction.
-5. **Auto-apply:** Tick the submission approval and click **Auto-apply this role**. The companion fills recognised empty fields and the cover-letter field, attaches your résumé, validates the form, and clicks its recognised submit button once when complete. It pauses for missing answers, unsupported controls, CAPTCHA and agreements. Complete those yourself; reapprove only when ready. **Fill application for review** remains available for autofill without automatic submission.
-6. **Confirm:** A newly detected confirmation is recorded with browser-confirmation provenance. If no confirmation is verified, the job is marked as an attempt needing verification, not applied. Check the page/email before retrying. You can record a confirmation manually or explicitly confirm an attempt was not sent inside the application workspace.
+Yahoo, Mastercard and Fidelity Investments use their official public Workday boards. Fidelity’s Ireland careers pages resolve to one shared connection, including existing saved requests. Its listings cover Dublin and Galway and retain the direct Workday application links; use the location filter to choose a city. Each connector filters by advertised Ireland location facets, and paginates up to 200 Ireland postings. It reports partial coverage when that limit or an interrupted page prevents a complete snapshot. Summaries link to the employer; Mastercard also supports full-description imports. Yahoo uses its public Ireland location facets and joins the existing daily runner automatically. LinkedIn’s own careers site connects to its official SmartRecruiters employer board (LinkedIn3), fetching public Ireland postings in pages of 100, up to 1,000. Its summaries include the employer’s location, working arrangement when supplied, release date and direct posting link. Invalid rows, interrupted pages or a page limit report partial coverage and preserve previous vacancies. Existing LinkedIn careers requests are recognised automatically and the daily runner includes the board without a script update. General LinkedIn job-search URLs remain saved links and are not imported. The older Mastercard careers frontend rejects requests from the hosted server.
 
-## Finding jobs
+Google sign-in, account watchlists, company requests, a 50-subscriber pilot cap, waitlisting and daily digest processing are implemented behind configuration gates. **A new deployment starts with alerts disabled and requires its own Google client, sender and scheduling setup.** Follow [Google and email setup](docs/GOOGLE-AND-EMAIL-SETUP.md) and verify login, delivery, unsubscribe and a scheduled cycle before enabling subscriptions. The private Apps Script runner in `ops/JobPilot.gs` must be installed and authorised separately; publishing the website does not install that runner.
 
-The app reads seven public employer boards via Greenhouse (Stripe, Intercom, Datadog, Squarespace, MongoDB, Toast, Reddit) and the Remotive public remote jobs feed. No API key or job URL is needed. It searches this defined selection, not all of LinkedIn, Indeed, or the internet.
+## Early-career pilot
 
-- Search runs when you first open Find jobs and when you click Find jobs or a preset. It is not a background scheduler.
-- Common frontend/React and support queries include related job-title variants; comma-separated alternatives are OR searches. General keywords match titles. Results are sorted by the number of recognised résumé skills in common, then listing date. This is a keyword comparison, not an eligibility assessment or hiring probability.
-- Location matches the posting’s advertised label. Dublin/Ireland searches exclude US-only remote listings and unknown remote ranges; European and worldwide remote labels can match Ireland. Read each posting’s residency, experience, language and work-authorisation requirements. The senior filter checks titles, so it does not establish experience eligibility.
-- Employer feeds are cached for 30 minutes. Remotive is fetched at most once every 6 hours when healthy; its public feed is delayed by 24 hours. Links and source attribution are preserved. Cache files survive restarts and contain public job data only; your résumé stays local.
-- Sources refresh only when a search needs them. An unavailable source is identified on screen. A cached copy less than 24 hours old can be shown with an explicit stale label, otherwise that source contributes no results. Failures back off for 5 minutes. Searches share concurrent fetches.
-- At most 100 ranked matches are returned, displayed 12 at a time. Narrow the filters for more specific results. The source panel lists counts and check times; it does not claim those source-wide counts all match your filters.
-- Saving a Greenhouse result rechecks that individual posting before adding it. Repeated saves return the existing application. No job is applied to or message sent as a result of searching or saving.
-- URL import is still available from Applications. Greenhouse/Lever APIs and other sites with JobPosting structured data are supported. For blocked pages, the extension can capture visible text.
+The **Early-career IT support** shortcut selects technical-support roles and 0–2 years of required experience. Higher preferred experience is disclosed; unclear or incomplete experience is separated on the website and excluded from early-career emails. Sponsorship uncertainty is labelled separately when sponsorship is needed. Internships and apprenticeships have separate opt-ins. Résumé skill gaps are explained only in the browser and never hide jobs.
 
-## Chrome / Edge extension
+Daily alerts contain only newly discovered matches after activation or a search change, excluding initial company imports. Quiet days produce no job email. Failed company checks retain visibly unverified listings on the website and exclude those jobs from emails; two failed daily checks produce one independent warning per outage. Verified added feeds are shared publicly, while account watchlists and requester identities remain private.
 
-The dashboard's **Tools & backups** page includes a downloadable extension ZIP and installation instructions. You can also load the local `extension` directory directly:
+See [the two-week pilot guide](docs/PILOT.md) for the complete rules, launch checks and five-friend trial. The trial has not been run.
 
-1. Open `chrome://extensions` or `edge://extensions`.
-2. Enable Developer mode, click **Load unpacked**, and select this project's `extension` folder.
-3. Open JobPilot's **Tools & backups**, copy the pairing key, and paste it into the extension with the local service address.
-4. Click the extension on the listing or form you want to work on.
+## Use the website
 
-The extension uses a service worker so an approved run can continue when its popup closes. It requests `activeTab`, `scripting`, local extension storage, clipboard write, and loopback host access. It runs on the tab you activate it on. It uses a bearer key to connect to the local service; that key is not included in exported backups or the extension ZIP. It does not read browser cookies or credentials.
+1. Open Find jobs and browse immediately. Search by role, location or company, then save roles or apply on the employer website.
+2. When preparing an application, open More tools → Your profile and upload a text-based résumé PDF (up to 8 MB). Review the extracted text.
+3. Save roles to Applications and prepare an introduction. Track applications, follow-ups and confirmed outcomes.
+4. Paste a job description in Tailor résumé. Relevant source skills and experience bullets are moved forward without shortening your résumé or adding claims. Every section and bullet is retained; Education, Projects and Achievements keep their wording and order. Ambiguous or wrapped experience groups stay in place to preserve context. Review matches and missing requirements, then edit and download PDF, Word or plain text. There is no ATS score or selection guarantee.
+5. Use Tools & backups to download a portable backup. Restore it when moving to another browser or computer.
 
-### Supported automation
+Refreshing starts the résumé builder with an empty form. Your saved profile, source résumé and applications remain in that browser. Alert accounts save only identity, watchlists, company requests and delivery records on the server. Signing in does not upload or sync the résumé workspace. Clearing site data or using a temporary browser session can remove your local workspace. The site includes no third-party analytics.
 
-- Visible job text / structured job capture with an editable preview.
-- Empty, labelled first name, last name, full name, email, phone, portfolio, LinkedIn, and GitHub fields.
-- PDF attachment to recognised résumé/CV file inputs that accept PDFs.
-- Framework-compatible input and change events.
-- User-approved submission of a single, recognised standard HTML or Ashby application form.
-- Ashby location suggestions require an explicit selection on the employer page and applicant review; the companion does not infer a selected location from typed text.
-- Ashby résumé uploads must show their completed attachment before submission.
-- The popup automatically matches a prepared role by its listing/application URL and explains remaining form blockers.
-- Tools & backups reports the last authenticated companion connection and version; it does not claim the browser is still connected.
-- Saved-profile and draft checks before submission; changes require fresh approval.
-- Persistent submission-attempt markers to stop duplicate retries after uncertain results.
-- Detection and recording of new confirmation messages; manual recording remains available.
+## Browser companion
 
-Auto-apply runs only on the active HTTPS page you approve; it does not open a batch of roles or apply to search results automatically. The companion must be installed/reloaded and paired first. It preserves answers already on the form and does not invent answers from missing profile data.
+Download the extension ZIP in Tools & backups, extract it, and load its folder using Developer mode in Chrome or Edge. Pair it with the website address and the pairing key shown by the site. Keep JobPilot open in the same browser profile.
 
-The supported form must have a recognisable name/résumé and email field and one clear Submit application / Apply / Submit button. Custom required controls other than the reviewed Ashby location field, ambiguous or cross-origin forms, login, CAPTCHA, unknown required answers and submission agreements pause the run. Complete unsupported steps and submit manually where required. Compatibility varies by employer; a fixture passing is not a claim that every production site is supported.
+On an employer's application form, open the companion, choose the prepared role, check that it matches the page, and fill for review. Submit only after reviewing the completed form and approving the selected role. Missing answers, required agreements, verification and unsupported controls pause the operation. An uncertain submission is recorded as pending and cannot be retried until the visitor verifies the result.
 
-If a submit click may have happened, the persistent attempt remains pending across browser restarts, application edits and backup restore. The extension checks the original tab for a confirmation for up to 30 minutes; **Check latest submission confirmation** can recheck it. Only use **I verified it was not sent** after checking the employer page and email. This clears the retry block; it does not retract an application.
+The companion accesses employer forms when the visitor activates it. It sends their reviewed application details to the selected employer. It does not bulk-apply to search results. Browser installation is separate from opening the website; it is not installed automatically or listed in an extension store.
 
-## Persistence and recovery
+## Data boundary
 
-- `data/jobpilot.sqlite`: SQLite database containing profiles, jobs, drafts, confirmation notes, activity, and the résumé PDF.
-- `data/discovery-cache/`: replaceable public job-feed caches, excluded from exports and distribution ZIPs.
-- `data/backups/`: snapshots at startup, before the first write each day, before restore/migration, and on request. The latest 14 snapshots are retained.
-- **Download complete backup** exports your profile, résumé, drafts, jobs, and recent activity as JSON. Treat it as a personal file.
-- Restore validates the archive before replacing data, uses a transaction, and saves a recovery snapshot first. Current activity is replaced with a restore event; prior events remain in the exported archive.
-- Archived roles remain searchable and duplicate-protected. Canonical URLs remove common tracking parameters and keep job identity.
-- Old browser data stays in localStorage and can be exported. Migration excludes the original four sample jobs. Old “submitted” markers on personal roles become unverified notes, not recorded submissions.
-- There is no cloud account or cross-computer sync. Multiple browsers on this computer use the same local database.
+Private résumé workspace data lives in IndexedDB under this website's origin. Browser-side code handles résumé reading, rearranging, file generation, backups and application records. Discovery requests contain job-search filters, company preferences or public posting URLs. Account requests contain a Google identity credential and alert preferences. The Worker verifies Google credentials and stores opaque, hashed sessions; account actions enforce ownership and same-origin requests. Employer fetching uses an HTTPS allowlist. A visitor's résumé and application profile are never uploaded by these workflows. Localhost's database is separate from the public site.
 
-## Validation
+The public extension uses an exact-origin host permission and executes its token-checked bridge in the open JobPilot tab. The application runner and duplicate-attempt protection remain in the companion and browser workspace. Backup restoration validates records before atomically replacing the workspace and retains a recovery snapshot.
+
+## Development
+
+Requires Node.js 24 and pnpm 11.19.0. The Node version is recorded in `.nvmrc` and the package-manager version in `package.json`. Install [pnpm](https://pnpm.io/installation), or use `corepack pnpm` in place of `pnpm` if Corepack is available.
 
 ```sh
-npm test
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm db:migrate:local
+pnpm exec wrangler dev --config ./wrangler.json --port 5183
 ```
 
-Tests cover discovery filters and source parsing, remote-region restrictions, deduplication, persistent caches, partial-source failure and expiry, saving discovered roles, evidence-based matching, invalid URLs/private network rejection, Greenhouse/Lever/JSON-LD parsing, duplicate detection, draft preservation, confirmation requirements, persistence, restore validation, migration, and local API access controls.
+`build.mjs` creates `dist/server/index.js`, static assets in `dist/client`, and the downloadable extension. Sites project registration is in `.openai/hosting.json`; use the Sites publishing workflow for this project.
 
-For the local DOM autofill and submission fixtures only, start a separate instance with `JOBPILOT_TEST_UI=1` and an isolated data directory; open `/tests/browser.html`, `/tests/ashby.html`, and `/tests/popup.html`. It tests contact fields, PDF attachment, preserving existing answers, leaving sensitive/unsupported answers alone, idempotence, and retaining manual-only autofill behaviour. The separate submission checks exercise a complete form, missing answers, scoped filling, changed pages, CAPTCHA, agreements, one submit click and confirmation detection. The fixture intercepts submission locally and never contacts an employer. Fixture routes are disabled normally.
+The company-watch service uses the logical Sites D1 binding `DB`; generated Drizzle migrations are packaged with the build. Runtime settings are described in `.env.example` and the setup guide. Résumé tools require a modern browser with IndexedDB, Web Workers and local downloads. PDF extraction does not perform OCR on scanned résumés. PDF exports embed Charter; Word uses Charter with the reader's font fallback when unavailable.
 
-A live Stripe posting was imported successfully during development. This verifies import, not application submission. No applications were sent during testing. Version 2.3.1 recognises Ashby’s submit button beside the field container, within the same unique application panel. Filling remains scoped to application fields; adjacent agreements and validation errors still block submission. The regression fixture mirrors Jiga’s live layout. All 31 service/runner tests, 23 Ashby browser checks and 24 standard-form browser checks passed for this fix. A read-only inspection of Jiga verified that the corrected boundary finds exactly one submit button. Production compatibility varies by employer; local fixture results do not guarantee support for every live application form. Reload version 2.3.1 in Chrome after updating the extension files.
+## Changes through pull requests
 
-## Implementation references
+Create a branch from the latest `main`, make one coherent change, and open a pull request back to `main`. Describe the user-visible behavior, validation and any limitations. The PR template provides a starting point. GitHub Actions runs the unit/service tests and production build for pull requests and updates to `main`; it uses no production credentials and sends no emails.
 
-- [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)
-- [Chrome service-worker events](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/events)
-- [Chrome scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
-- [Greenhouse public Job Board API](https://docs.greenhouse.io/job-board.html)
-- [Remotive public API and attribution/caching requirements](https://github.com/remotive-com/remote-jobs-api)
-- [Lever public Postings API](https://github.com/lever/postings-api)
-- [Node SQLite](https://nodejs.org/api/sqlite.html)
+```sh
+git switch main
+git pull --ff-only
+git switch -c codex/describe-your-change
+# Make the change, then run the checks.
+pnpm test
+pnpm build
+git add <changed-files>
+git commit -m "Describe the change"
+git push -u origin codex/describe-your-change
+```
+
+Open **Compare & pull request** on GitHub, review the diff and checks, and merge when ready. Merging a GitHub PR does not deploy the live website automatically; hosting still uses the separate Sites publishing workflow. Changes to the Google Apps Script runner also need to be copied into that private script separately.
+
+## Current limitations
+
+- Career sites connect automatically only when a supported feed can be verified. Other careers links remain visible but do not contribute jobs or alerts.
+- Early-career experience and sponsorship extraction uses conservative text rules. Ambiguous requirements and summary-only descriptions stay explicitly uncertain.
+- The two-week user trial has not started; automated tests do not demonstrate real-world matching quality or inbox delivery.
+- Job-feed availability and summary completeness vary by employer. Review the full employer posting before applying.
+- Résumé tailoring rearranges supplied content without inventing qualifications and does not promise an ATS score or hiring outcome.
+
+## Checks
+
+`pnpm test` covers source failures, incomplete snapshots, vacancy closure, Ireland matching, subscription capacity, FIFO promotion, digest reservation and uncertainty, unsubscribe, ownership and request boundaries, plus the existing workspace and résumé protections. Service integration tests execute the generated schema against SQLite. Browser checks cover filters, saving roles, mobile layout, résumé preservation and downloads. Google login and real email delivery require the separate launch checks; unit tests do not establish either connection. Live applications are never submitted as part of testing.
+
+Run `pnpm build`, `pnpm exec playwright install chromium`, then `pnpm test:browser`. These tests use temporary local servers and in-memory accounts to verify anonymous search, pagination, filter persistence through sign-in, local saved jobs, employer Apply links, company connections, explicit email consent, pausing, mobile layout, reduced motion, and unsubscribe confirmation with token-free referrers and suppression of queued mail. Employer feeds and the Google identity provider are replaced with fixtures; account preferences and subscription changes use the real Worker with an isolated SQLite database. These tests do not send emails or verify live Google authentication. To use installed Chrome instead, run `JOBPILOT_TEST_BROWSER_CHANNEL=chrome pnpm test:browser`.
+
+## Fonts
+
+Charter is distributed under the Bitstream Charter licence included at `src/assets/fonts/Charter license.txt`, sourced from https://practicaltypography.com/charter.html. The licence notice remains in the deployed assets.

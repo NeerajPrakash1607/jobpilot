@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789550877729,
+      "tag": "0000_graceful_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789575077903,
+      "tag": "0001_tidy_falcon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790003289393,
+      "tag": "0002_next_wildside",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790144658790,
+      "tag": "0003_company_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790330354903,
+      "tag": "0004_connection_feedback",
+      "breakpoints": true
+    }
+  ]
+}
