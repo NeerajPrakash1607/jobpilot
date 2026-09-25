@@ -49,7 +49,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     document.body.classList.add('flow-open');
   }
   function closeDialog(id) { $(id).close(); }
-  for (const id of ['company-dialog','alert-dialog','job-dialog']) {
+  for (const id of ['company-dialog','alert-dialog','job-dialog','guide-dialog']) {
     $(id).addEventListener('close', () => {
       if (!document.querySelector('dialog[open]')) document.body.classList.remove('flow-open');
       const el = dialogFocus.get(id); if (el?.isConnected && el.getClientRects().length) el.focus();
@@ -267,6 +267,26 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     form.elements.url.focus(); form.elements.url.select();
     if (state?.account && button.hasAttribute('data-review-company')) form.requestSubmit();
   });
+  $('watch-guide-open').addEventListener('click',()=>{
+    const prefs=preferences();
+    $('guide-roles').value=prefs.roles;
+    $('guide-city').value=prefs.city;
+    $('guide-level').value=prefs.level==='any'?'entry':prefs.level;
+    showDialog('guide-dialog'); $('guide-roles').focus();
+  });
+  $('watch-guide-form').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const fields=Object.fromEntries(new FormData(e.target));
+    if(!fields.roles.trim()) { $('guide-roles').setCustomValidity('Enter a role to start your search.'); $('guide-roles').reportValidity(); return; }
+    onlyNew=false;
+    populate({...emptySearch,...fields});
+    closeDialog('guide-dialog');
+    await search();
+    $('watch-result-count').tabIndex=-1;
+    $('watch-result-count').focus({preventScroll:true});
+    $('watch-result-count').scrollIntoView({block:'start',behavior:'instant'});
+  });
+  $('guide-roles').addEventListener('input',()=> $('guide-roles').setCustomValidity(''));
   $('watch-new-toggle').addEventListener('click',()=>{onlyNew=!onlyNew;search();});
   $('watch-filter-form').addEventListener('submit',e => { e.preventDefault(); search(); });
   $('watch-company-filter').addEventListener('input',renderCompanies);

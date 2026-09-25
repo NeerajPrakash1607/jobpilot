@@ -27,7 +27,7 @@
     <div class="view-stack">
       <div id="error-banner" class="error-banner" role="alert" hidden></div>
       <section data-view="watch" class="view is-visible" aria-labelledby="watch-title">
-        <div class="watch-heading"><div><p class="eyebrow">IRELAND & ELIGIBLE REMOTE</p><h1 id="watch-title">Find your next role.</h1></div><img class="pilot-mascot" src="/assets/pilot.png" width="80" height="80" alt=""></div>
+        <div class="watch-heading"><div><p class="eyebrow">IRELAND & ELIGIBLE REMOTE</p><h1 id="watch-title">Find your next role.</h1></div><div class="quick-start-launch"><img class="pilot-mascot" src="/assets/pilot.png" width="80" height="80" alt=""><button type="button" class="text-button" id="watch-guide-open" aria-haspopup="dialog">Quick start</button></div></div>
         <div class="search-workspace"><aside class="search-rail" aria-label="Job search filters"><details class="search-filter-panel" id="search-filter-panel" open><summary><span>Your search</span><span class="search-filter-caption" id="watch-filter-summary">All roles · Ireland</span><span class="filter-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 9 6 6 6-6"/></svg></span></summary>
         <form id="watch-filter-form" autocomplete="off" class="search-surface">
           <div class="search-main-fields">
@@ -49,6 +49,18 @@
         <details class="scenery-credits"><summary>Ireland photography</summary><ul><li><a href="https://commons.wikimedia.org/wiki/File:Cliffs_Of_Moher_Clare_Ireland_Landscape_Photography_(219674231).jpeg" target="_blank" rel="noopener noreferrer">Cliffs of Moher</a> — Giuseppe Milo, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>.</li><li><a href="https://commons.wikimedia.org/wiki/File:Glendalough_upper_lake.jpg" target="_blank" rel="noopener noreferrer">Glendalough Upper Lake</a> — Michael Rooney, public domain.</li><li><a href="https://commons.wikimedia.org/wiki/File:Samuel_Beckett_bridge_at_night_-_Flickr_-_D464-Darren_Hall.jpg" target="_blank" rel="noopener noreferrer">Samuel Beckett Bridge, Dublin</a> — D464-Darren Hall, <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener noreferrer">CC BY 2.0</a>.</li></ul><p>Via Wikimedia Commons. Photos cropped and darkened for display.</p></details>
         <p class="field-help watch-disclaimer">Check the employer’s requirements before applying. “First seen” is when JobPilot found the job.</p></div></div>
       </section>
+      <dialog id="guide-dialog" class="flow-dialog guide-dialog" aria-labelledby="guide-title">
+        <div class="dialog-header"><div><p class="eyebrow">NEW TO JOBPILOT?</p><h2 id="guide-title">Start with what suits you.</h2></div><button type="button" class="dialog-close" data-close-dialog="guide-dialog" aria-label="Close quick start">×</button></div>
+        <p>Choose a starting point. You can change your filters whenever you like.</p>
+        <form id="watch-guide-form" class="quick-start-form">
+          <label>1. What kind of role?<input name="roles" id="guide-roles" maxlength="160" required list="guide-role-ideas" placeholder="e.g. IT support"><span class="field-help">Type a role, or pick a suggestion.</span></label>
+          <datalist id="guide-role-ideas"><option value="IT support, technical support, help desk"></option><option value="Software engineer, developer"></option><option value="Data analyst"></option><option value="QA, software tester"></option><option value="Cybersecurity, security analyst"></option></datalist>
+          <label>2. Where would you like to work?<input name="city" id="guide-city" maxlength="120" placeholder="Any location in Ireland"><span class="field-help">Leave blank for Ireland and eligible remote roles.</span></label>
+          <label>3. What experience level?<select name="level" id="guide-level"><option value="entry">Early career · 0–2 years required</option><option value="any">Any level</option><option value="mid">Mid level</option><option value="senior">Senior / management</option></select></label>
+          <p class="field-help">We’ll search all connected companies. No account is needed, and this won’t turn on emails.</p>
+          <div class="dialog-footer"><button type="button" class="text-button" data-close-dialog="guide-dialog">Keep browsing</button><button type="submit" class="button button-primary">Show matching jobs</button></div>
+        </form>
+      </dialog>
       <dialog id="company-dialog" class="flow-dialog" aria-labelledby="company-dialog-title">
         <div class="dialog-header"><div><p class="eyebrow">A COMPANY YOU HAVE IN MIND?</p><h2 id="company-dialog-title">Find your companies.</h2></div><button type="button" class="dialog-close" data-close-dialog="company-dialog" aria-label="Close companies">×</button></div>
         <label class="dialog-search">Search company name<input type="search" id="watch-company-filter" placeholder="Try Mastercard, Stripe…" autocomplete="off"></label>

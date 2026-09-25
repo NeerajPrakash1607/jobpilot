@@ -776,3 +776,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 .visit-toolbar .field-help{margin:0;line-height:1.5}
 
 .connection-reason,.connection-checked{margin:8px 0 8px 48px;font-size:.875rem;line-height:1.55;color:var(--muted)}.connection-reason{color:var(--text)}.company-link-actions{flex-wrap:wrap}#watch-request-form[aria-busy="true"] button{cursor:progress}
+
+.quick-start-launch{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto!important}.quick-start-launch .pilot-mascot{width:54px;height:54px}.quick-start-launch .text-button{font-size:.875rem;min-height:36px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;white-space:nowrap}.guide-dialog{max-width:540px}.quick-start-form{display:grid;gap:18px}.quick-start-form>label{display:grid;gap:8px;font-size:1rem;font-weight:600}.quick-start-form .field-help{font-weight:400;margin:0;font-size:.875rem;line-height:1.5}.quick-start-form select{width:100%;padding:12px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;font:inherit}#watch-result-count{scroll-margin-top:85px}.quick-start-form .dialog-footer{position:static;background:none}
+@media(max-width:600px){.quick-start-launch .pilot-mascot{width:40px;height:40px}.quick-start-launch .text-button{padding:4px 7px}.watch-heading h1{max-width:260px}}
+
+#watch-guide-form{margin-top:16px}#watch-guide-form>label{font-size:1rem}#watch-guide-form select{font-size:1rem}#watch-guide-form .text-button{font-size:.875rem}
