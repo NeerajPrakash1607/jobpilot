@@ -63,7 +63,9 @@ export function unconnectedCompanyLinks(companies,requests=[],legacy=[]){
     const source=companySource(item);
     if(companies.some(c=>c.supported&&(c.id===source.id||c.url===source.home)))continue;
     const ready=source.type!=='website';
-    entries.set(source.id,{name:source.name,url:source.home,ready,message:ready?'This board is supported. Check and connect it to start syncing.':unsupportedSourceReason(source)});
+    const saved=requests.find(r=>!r.connected&&companySource(r).id===source.id);
+    const checkedAt=saved?.checked_at||null, issue=saved?.connection_message;
+    entries.set(source.id,{name:source.name,url:source.home,ready,checkedAt,message:issue||(ready?'This board is supported. Check and connect it to start syncing.':unsupportedSourceReason(source))});
   }
   return [...entries.values()];
 }

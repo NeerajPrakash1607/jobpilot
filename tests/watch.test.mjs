@@ -172,8 +172,16 @@ test('unsupported and failed connections never become scheduled feeds',async()=>
   assert.match(unsupported.message,/Greenhouse, Lever, Ashby, Workday or SmartRecruiters/);
   const repeated=await connectCompany(store,a.id,{name:'Unknown',url:'https://example.org/careers'},now+1,undefined,async url=>({url,html:'<h1>Careers</h1>'}));
   assert.equal(repeated.status,'unsupported');assert.equal((await store.requests(a.id)).length,1);
+  assert.equal((await watchStore(db).requests(a.id))[0].checked_at,now+1);
+  assert.equal((await watchStore(db).requests(a.id))[0].connection_message,repeated.message);
   await assert.rejects(connectCompany(store,a.id,{name:'Offline',url:'https://jobs.ashbyhq.com/offline'},now,async()=>{throw Error('HTTP 403');}),/blocks automated access/);
+  const failedRequest=(await watchStore(db).requests(a.id)).find(r=>r.name==='Offline');
+  assert.match(failedRequest.connection_message,/blocks automated access/);assert.equal(failedRequest.checked_at,now);
+  const b=await user(store,'different');assert.equal((await store.requests(b.id)).length,0);
   assert.equal((await store.sources()).length,before);
+  await connectCompany(store,a.id,{name:'Offline',url:'https://jobs.ashbyhq.com/offline'},now+2,async()=>'{"jobs":[]}');
+  const recovered=(await store.requests(a.id)).find(r=>r.name==='Offline');
+  assert.equal(recovered.connected,true);assert.equal(recovered.connection_message,null);
   assert.equal((await watchApi(req('/connect',{name:'No account',url:'https://jobs.lever.co/example'}),{DB:db})).status,401);
  }finally{close();}
 });

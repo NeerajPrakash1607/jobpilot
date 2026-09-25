@@ -30,7 +30,7 @@ export const deliveredJobs=sqliteTable('watch_delivered_jobs',{
 },t=>[primaryKey({columns:[t.accountId,t.jobId]})]);
 export const requests=sqliteTable('watch_requests',{
  id:text('id').primaryKey(),accountId:text('account_id').notNull().references(()=>accounts.id,{onDelete:'cascade'}),name:text('name').notNull(),url:text('url').notNull(),createdAt:integer('created_at').notNull(),
- sourceId:text('source_id'),
+ sourceId:text('source_id'),connectionMessage:text('connection_message'),checkedAt:integer('checked_at'),
 },t=>[uniqueIndex('idx_watch_requests_account_url').on(t.accountId,t.url)]);
 export const system=sqliteTable('watch_system',{key:text('key').primaryKey(),value:text('value').notNull()});
 

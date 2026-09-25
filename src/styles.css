@@ -774,3 +774,5 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 .visit-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 18px}.visit-toolbar .button{font-size:.875rem;padding:10px 14px}.visit-toolbar [aria-pressed="true"]{background:var(--accent);color:var(--bg);border-color:var(--accent)}.new-job-badge{display:inline-block;margin-left:10px;padding:3px 8px;border:1px solid currentColor;border-radius:5px;color:var(--accent);font-size:.75rem;vertical-align:middle}
 
 .visit-toolbar .field-help{margin:0;line-height:1.5}
+
+.connection-reason,.connection-checked{margin:8px 0 8px 48px;font-size:.875rem;line-height:1.55;color:var(--muted)}.connection-reason{color:var(--text)}.company-link-actions{flex-wrap:wrap}#watch-request-form[aria-busy="true"] button{cursor:progress}

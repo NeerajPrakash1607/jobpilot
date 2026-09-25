@@ -5,6 +5,7 @@ import {loadCompanyFeed} from './company-feeds.mjs';
 import {irelandReason,digestSelection,dublinDay} from './watch-domain.mjs';
 import {unsubscribeToken} from './watch-auth.mjs';
 import {probeCompany,connectionError} from './company-connections.mjs';
+import {companySource} from './company-sources.mjs';
 import {getCareersPage} from './careers-discovery.mjs';
 
 export async function checkCompany(store,id,now,fetchPage=getPublicPage){
@@ -22,9 +23,14 @@ export async function checkCompany(store,id,now,fetchPage=getPublicPage){
  return {id,status:snapshot.kind==='failed'?'failed':snapshot.complete?'complete':'partial',count:snapshot.jobs?.length||0};
 }
 export async function connectCompany(store,accountId,input,now,fetchPage=getPublicPage,fetchCareers=getCareersPage){
- const sources=await store.sources(),result=await probeCompany(input,sources,fetchPage,fetchCareers);
+ const candidate=companySource(input),sources=await store.sources();let result;
+ try{result=await probeCompany(input,sources,fetchPage,fetchCareers);}
+ catch(error){
+  if(error instanceof AppError&&error.status===422)await store.requestCompany(accountId,candidate.name,candidate.home,now,error.message);
+  throw error;
+ }
  if(result.status==='unsupported'){
-  await store.requestCompany(accountId,result.source.name,result.source.home,now);
+  await store.requestCompany(accountId,result.source.name,result.source.home,now,result.message);
   return {status:'unsupported',message:result.message};
  }
  const {source,feed}=result;
