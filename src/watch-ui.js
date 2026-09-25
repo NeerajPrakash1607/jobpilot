@@ -1,3 +1,4 @@
+import {readVisit,VISIT_KEY} from './lib/visit-history.mjs';
 import {resumeSkillEvidence} from './lib/job-matching.mjs';
 import {searchTakeoff, flyToApplications} from './motion.js';
 import {unconnectedCompanyLinks} from './lib/company-sources.mjs';
@@ -14,7 +15,15 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   let companies = [], selection = new Set(), jobs = [], visible = 20, state = null;
   let initialized = false, filterRevision = 0, totalMatches = 0, checking = false, saving = new Set();
   let alertDraft = null, authPurpose = 'alerts', alertBusy = false, legacy = [], previewJob = null;
-  let requestedLinks = [];
+  let requestedLinks = [], onlyNew = false, newCount = 0, visit = null;
+  function startVisit() {
+    if (visit) return;
+    let raw = null; try { raw = localStorage.getItem(VISIT_KEY); } catch {}
+    visit = readVisit(raw,Date.now());
+  }
+  function rememberVisit() {
+    try { localStorage.setItem(VISIT_KEY,JSON.stringify({since:visit.since,lastSeen:Date.now()})); } catch {}
+  }
   const dialogFocus = new Map();
   const mobileLayout = matchMedia('(max-width: 900px)');
   const desktopRail = matchMedia('(min-width: 1101px)');
@@ -89,7 +98,10 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     $('watch-filter-summary').textContent = [$('watch-roles').value.trim() || 'All roles', $('watch-city').value.trim() || 'Ireland', picked.length ? `${picked.length} ${picked.length === 1 ? 'company':'companies'}` : ''].filter(Boolean).join(' · ');
   }
   function renderJobs(animateFrom = 0) {
-    $('watch-result-count').textContent = `${totalMatches.toLocaleString()} ${totalMatches === 1 ? 'job':'jobs'} to explore`;
+    $('watch-new-toggle').setAttribute('aria-pressed',String(onlyNew));
+    $('watch-new-toggle').textContent = `New since last visit (${newCount})`;
+    $('watch-visit-note').textContent = visit?.returning ? `Found since ${when(visit.since)} · This browser` : 'Your first visit: new jobs will be highlighted when you return in this browser.';
+    $('watch-result-count').textContent = `${totalMatches.toLocaleString()} ${totalMatches === 1 ? 'job':'jobs'} ${onlyNew ? 'new since last visit':'to explore'}`;
     if (totalMatches > jobs.length) $('watch-result-count').textContent += ` · showing ${jobs.length}`;
     const sources = companies.filter(c => c.supported && (!selection.size || selection.has(c.id)));
     const missing = sources.filter(c => !['fresh','partial'].includes(c.health));
@@ -98,11 +110,11 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     function row(job,index) {
       const saved = isSaved(job), source = companies.find(c => c.id === job.sourceId), fresh = ['fresh','partial'].includes(source?.health);
       const skills = resumeSkillEvidence(job,getProfile());
-      return `<article class="job-result-row" style="--row:${Math.min(Math.max(0,index-animateFrom),6)};${index < animateFrom ? 'animation:none':''}"><div class="company-avatar job-avatar" aria-hidden="true">${escape(job.company.slice(0,2))}</div><div class="job-result-main"><span class="job-company-name">${escape(job.company)}</span><h3><button class="job-title-button" data-watch-detail="${escape(job.id)}">${escape(job.title)}</button></h3><div class="job-result-meta"><span>${escape(job.location)}</span>${arrangementNames[job.arrangement] ? `<span class="arrangement-tag">${arrangementNames[job.arrangement]}</span>`:''}${job.training!=='regular'?`<span class="arrangement-tag">${escape(job.training)}</span>`:''}${job.experience.kind==='clear'?`<span>${escape(job.experience.label)}</span>`:''}</div><p class="job-listing-dates">First found ${when(job.firstSeen)}${job.listingDate?` · Employer ${escape(job.dateLabel.toLowerCase())}: ${when(job.listingDate)}`:''}</p>${!fresh?`<p class="coverage-warning">Not recently verified · Last successful check: ${when(source?.lastSuccess)}</p>`:''}${job.group==='sponsorship_unknown'?'<p class="coverage-warning">Sponsorship not stated</p>':''}${job.experience.higherPreferred.length?`<p class="job-listing-dates">Higher experience preferred — see requirements.</p>`:''}${skills.compared&&skills.missing.length?`<p class="job-skill-gaps">Required skills not found in your résumé: ${escape(skills.missing.join(', '))}</p>`:''}</div><div class="job-row-actions"><button type="button" class="save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" aria-label="${saved ? 'Saved':'Save'} ${escape(job.title)}" aria-pressed="${saved}" ${saved ? 'disabled':''}><span aria-hidden="true">${saved ? '✓':'+'}</span><span>${saved ? 'Saved':'Save'}</span></button><a class="apply-job" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer" aria-label="Apply for ${escape(job.title)} on the employer website">Apply <span aria-hidden="true">↗</span></a></div></article>`;
+      return `<article class="job-result-row" style="--row:${Math.min(Math.max(0,index-animateFrom),6)};${index < animateFrom ? 'animation:none':''}"><div class="company-avatar job-avatar" aria-hidden="true">${escape(job.company.slice(0,2))}</div><div class="job-result-main"><span class="job-company-name">${escape(job.company)}</span>${visit&&job.firstSeen>visit.since?'<span class="new-job-badge">New since last visit</span>':''}<h3><button class="job-title-button" data-watch-detail="${escape(job.id)}">${escape(job.title)}</button></h3><div class="job-result-meta"><span>${escape(job.location)}</span>${arrangementNames[job.arrangement] ? `<span class="arrangement-tag">${arrangementNames[job.arrangement]}</span>`:''}${job.training!=='regular'?`<span class="arrangement-tag">${escape(job.training)}</span>`:''}${job.experience.kind==='clear'?`<span>${escape(job.experience.label)}</span>`:''}</div><p class="job-listing-dates">First found ${when(job.firstSeen)}${job.listingDate?` · Employer ${escape(job.dateLabel.toLowerCase())}: ${when(job.listingDate)}`:''}</p>${!fresh?`<p class="coverage-warning">Not recently verified · Last successful check: ${when(source?.lastSuccess)}</p>`:''}${job.group==='sponsorship_unknown'?'<p class="coverage-warning">Sponsorship not stated</p>':''}${job.experience.higherPreferred.length?`<p class="job-listing-dates">Higher experience preferred — see requirements.</p>`:''}${skills.compared&&skills.missing.length?`<p class="job-skill-gaps">Required skills not found in your résumé: ${escape(skills.missing.join(', '))}</p>`:''}</div><div class="job-row-actions"><button type="button" class="save-job ${saved ? 'is-saved':''}" data-watch-save="${escape(job.id)}" aria-label="${saved ? 'Saved':'Save'} ${escape(job.title)}" aria-pressed="${saved}" ${saved ? 'disabled':''}><span aria-hidden="true">${saved ? '✓':'+'}</span><span>${saved ? 'Saved':'Save'}</span></button><a class="apply-job" href="${escape(job.url)}" target="_blank" rel="noopener noreferrer" aria-label="Apply for ${escape(job.title)} on the employer website">Apply <span aria-hidden="true">↗</span></a></div></article>`;
     }
     const shown=jobs.slice(0,visible);
     const sections=[['matches','Matching roles','Closest role matches first, then most recently found.'],['sponsorship_unknown','Sponsorship not stated','These roles match your other filters. Ask the employer about sponsorship.'],['experience_unclear','Possible match — experience unclear','The available requirements do not confirm a 0–2-year match. These jobs stay on the website and are excluded from early-career emails.']];
-    $('watch-results').innerHTML = jobs.length ? sections.map(([group,title,help])=>{
+    $('watch-results').innerHTML = onlyNew && !jobs.length ? '<div class="jobs-empty"><h3>No new matches since your last visit.</h3><p>Try different filters, or browse all matching jobs.</p><button type="button" class="button button-secondary" id="watch-show-all">Show all matching jobs</button></div>' : jobs.length ? sections.map(([group,title,help])=>{
       const items=shown.filter(j=>j.group===group);if(!items.length)return '';
       const showHeading=group!=='matches'||jobs.some(j=>j.group!=='matches');
       return `<section class="match-group" data-match-group="${group}" aria-label="${title}">${showHeading?`<div class="match-group-heading"><h3>${title} <span>(${jobs.filter(j=>j.group===group).length})</span></h3><p>${help}</p></div>`:''}${items.map((job)=>row(job,shown.indexOf(job))).join('')}</section>`;
@@ -111,16 +123,17 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     $('watch-more').textContent = `Show ${Math.min(20,Math.max(0,jobs.length-visible))} more jobs`;
   }
   async function search() {
-    const revision = ++filterRevision, prefs = preferences();
+    startVisit();
+    const revision = ++filterRevision, prefs = {...preferences(),since:visit.since,onlyNew};
     error(''); $('watch-search').disabled = true; $('watch-search').textContent = 'Searching'; $('watch-results').setAttribute('aria-busy','true');
     $('watch-filter-form').classList.add('motion-searching'); searchTakeoff();
     try {
       const r = await api('/jobs',prefs); if (revision !== filterRevision) return;
-      jobs = r.jobs; totalMatches = r.total; companies = r.companies; visible = 20; renderCompanies(); renderJobs();
+      rememberVisit(); newCount = r.newCount || 0; jobs = r.jobs; totalMatches = r.total; companies = r.companies; visible = 20; renderCompanies(); renderJobs();
     } catch(e) { if (revision === filterRevision) { error(e.message + (jobs.length ? ' Your previous results are still shown.':'')); if (!jobs.length) $('watch-results').innerHTML = '<div class="jobs-empty"><h3>Jobs couldn’t load.</h3><p>Please try Find jobs again shortly.</p></div>'; } }
     finally { if (revision === filterRevision) { $('watch-search').disabled = false; $('watch-search').innerHTML = 'Find jobs <span aria-hidden="true">↗</span>'; $('watch-filter-form').classList.remove('motion-searching'); $('watch-results').setAttribute('aria-busy','false'); } }
   }
-  function resetFilters() { populate(emptySearch); search(); }
+  function resetFilters() { onlyNew = false; populate(emptySearch); search(); }
   function openCompanies() { renderCompanies(); showDialog('company-dialog'); $('watch-company-filter').focus(); }
   function showJob(job) {
     previewJob = job;
@@ -254,6 +267,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     form.elements.url.focus(); form.elements.url.select();
     if (state?.account) form.requestSubmit();
   });
+  $('watch-new-toggle').addEventListener('click',()=>{onlyNew=!onlyNew;search();});
   $('watch-filter-form').addEventListener('submit',e => { e.preventDefault(); search(); });
   $('watch-company-filter').addEventListener('input',renderCompanies);
   $('watch-companies').addEventListener('change',e => { const id = e.target.dataset.watchCompany; if (!id) return; if (e.target.checked) selection.add(id); else selection.delete(id); renderCompanies(); search(); });
@@ -262,7 +276,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   $('watch-clear').addEventListener('click',() => { selection.clear(); renderCompanies(); search(); });
   $('watch-early-career').addEventListener('click',()=>{ $('watch-roles').value='IT support, technical support, help desk'; $('watch-level').value='entry'; renderCompanies(); search(); });
   $('watch-reset').addEventListener('click',resetFilters);
-  $('watch-results').addEventListener('click',e => { if (e.target.closest('#watch-empty-reset')) { if (companies.some(c => c.supported && c.lastSuccess)) resetFilters(); else openCompanies(); } else handleJobAction(e); });
+  $('watch-results').addEventListener('click',e => { if(e.target.closest('#watch-show-all')) {onlyNew=false;search();} else if (e.target.closest('#watch-empty-reset')) { if (companies.some(c => c.supported && c.lastSuccess)) resetFilters(); else openCompanies(); } else handleJobAction(e); });
   $('job-preview-content').addEventListener('click',handleJobAction);
   $('watch-more').addEventListener('click',() => { const previous = visible; visible += 20; renderJobs(previous); });
   $('watch-company-open').addEventListener('click',openCompanies);

@@ -1,4 +1,5 @@
 import {AppError,object,text,publicUrl} from './domain.mjs';
+import {visitResults} from './visit-history.mjs';
 import {watchStore} from './watch-store.mjs';
 import {parseWatchPreferences,matchWatchJobs,PILOT_CAPACITY} from './watch-domain.mjs';
 import {cookie,setCookie,randomToken,hashToken,googleIdentity,requireRunner,unsubscribeToken} from './watch-auth.mjs';
@@ -53,7 +54,10 @@ export async function watchApi(request,env){
   const data=await input(request);
   if(route==='/jobs'){
    const preferences=parseWatchPreferences(data,await store.sources()),jobs=matchWatchJobs(await store.jobs(),preferences);
-   return json({jobs:jobs.slice(0,500),total:jobs.length,companies:await store.catalog(now)});
+   const since=data.since==null?null:data.since;
+   if(since!==null&&(!Number.isSafeInteger(since)||since<=0))throw new AppError('Invalid previous visit time.');
+   const results=visitResults(jobs,since===null?null:Math.min(since,now),data.onlyNew===true);
+   return json({jobs:results.jobs.slice(0,500),total:results.jobs.length,newCount:results.newCount,companies:await store.catalog(now)});
   }
   if(route==='/check')return json(await checkCompany(store,text(data.company,120,true),now));
   if(route==='/login-challenge'){

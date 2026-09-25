@@ -60,6 +60,18 @@ test('one job flow supports anonymous search, saved applications, connections an
   const page=await context.newPage();page.on('pageerror',error=>failures.push(error.message));
   await page.goto(origin+'/#watch');
   await page.locator('.job-result-row').first().waitFor();
+  assert.equal(await page.locator('.new-job-badge').count(),0);
+  sql.prepare('UPDATE watch_vacancies SET first_seen=?').run(now-7200000);
+  sql.prepare('UPDATE watch_vacancies SET first_seen=? WHERE id=?').run(now,'stripe-0');
+  await page.evaluate(value=>localStorage.setItem('jobpilot.visit.v1',JSON.stringify(value)),{since:now-7200000,lastSeen:now-3600000});
+  await page.reload();
+  await page.getByRole('button',{name:'New since last visit (1)',exact:true}).waitFor();
+  await page.locator('#watch-new-toggle').click();
+  await page.locator('#watch-result-count').filter({hasText:'1 job new since last visit'}).waitFor();
+  assert.equal(await page.locator('.job-result-row').count(),1);
+  await page.reload();
+  await page.getByRole('button',{name:'New since last visit (1)',exact:true}).waitFor();
+  assert.equal(await page.locator('.new-job-badge').count(),1);
   assert.equal(await page.locator('nav[aria-label="Main sections"] button').count(),3);
   assert.equal(await page.locator('.job-result-row').count(),20);
   assert.match(await page.locator('#watch-result-count').innerText(),/23 jobs/);
@@ -198,7 +210,8 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-result-count').filter({hasText:'24 jobs'}).waitFor();
   await page.locator('#toast').evaluate(el=>el.classList.remove('visible','is-visible'));
   await page.screenshot({path:'/private/tmp/jobpilot-refined-mobile.png'});
-  assert.ok((await page.locator('.job-result-row').first().boundingBox()).y<470,'Collapsed mobile filters should expose the first role immediately');
+  const mobileRow=await page.locator('.job-result-row').first().boundingBox();
+  assert.ok(mobileRow.y+mobileRow.height<page.viewportSize().height-64,'The first mobile role remains fully visible above the navigation');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   assert.equal(await page.locator('.job-result-row').first().evaluate(el=>getComputedStyle(el).animationName),'none');
   await page.locator('.mobile-dock [data-nav="tailor"]').click();
