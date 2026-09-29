@@ -24,14 +24,35 @@ const vacancy={id:'stripe-1',providerId:'1',sourceId:'stripe',source:'Stripe',ti
 async function user(store,id='one'){return store.saveAccount({id:'google:'+id,email:id+'@example.test',name:'Example'},'unsubscribe-'+id,now);}
 const req=(route,data={},session='')=>new Request('https://jobpilot.example/watch-api'+route,{method:'POST',headers:{Origin:'https://jobpilot.example','X-JobPilot':'1','Content-Type':'application/json',Cookie:session?'jp_watch_session='+session:''},body:JSON.stringify(data)});
 
-test('Cisco saved links can be removed or replaced without changing shared feeds or other accounts',async()=>{
+test('existing Cisco requests become one selectable feed and its background check stores Ireland jobs',async()=>{
+ const {store,close}=database();try{
+  const account=await user(store),preferences=account.preferences;
+  for(const url of ['https://careers.cisco.com/global/en/collab','https://careers.cisco.com/global/en/search-results'])await store.requestCompany(account.id,'Cisco',url,now,'Could not inspect this page.');
+  const sources=(await store.sources()).filter(s=>s.name==='Cisco');assert.equal(sources.length,1);
+  assert.ok((await store.requests(account.id)).every(r=>r.connected),'Old saved URLs now identify the connected feed');
+  assert.ok(parseWatchPreferences({...EMPTY_PREFERENCES,companies:[sources[0].id]}).companies.includes(sources[0].id));
+  const checked=await checkCompany(store,sources[0].id,now,async(url,_redirects,_bytes,options)=>{
+   assert.equal(url,'https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs');
+   const body=JSON.parse(options.body);
+   if(!body.appliedFacets.locations)return JSON.stringify({total:40,jobPostings:[],facets:[{facetParameter:'locations',values:[{id:'irish',descriptor:'Galway, Ireland'}]}]});
+   return JSON.stringify({total:1,jobPostings:[{title:'Support Engineer',externalPath:'/job/Galway-Ireland/Support-Engineer_12345',locationsText:'Galway, Ireland',bulletFields:['12345']}]});
+  });
+  assert.equal(checked.status,'complete');assert.equal(checked.count,1);
+  const company=(await store.catalog(now)).find(s=>s.id===sources[0].id);
+  assert.equal(company.supported,true);assert.equal(company.health,'fresh');
+  assert.equal((await store.jobs()).filter(j=>j.sourceId===sources[0].id).length,1);
+  assert.deepEqual((await store.account(account.id)).preferences,preferences,'Connecting Cisco does not change personal alert selections');
+ }finally{close();}
+});
+
+test('Example Company saved links can be removed or replaced without changing shared feeds or other accounts',async()=>{
  const {db,store,close}=database();try{
   const a=await user(store),b=await user(store,'other'),session='saved-company-test';
   await store.createSession(await hashToken(session),a.id,Date.now()+60000);
-  const first='https://careers.cisco.com/global/en/collab',second='https://careers.cisco.com/global/en/search-results';
-  for(const url of [first,second])await store.requestCompany(a.id,'Cisco',url,now,'Could not inspect this page.');
-  await store.requestCompany(b.id,'Cisco',first,now);
-  assert.equal((await store.requests(a.id)).length,2,'Reproduce the two distinct saved Cisco URLs');
+  const first='https://example.org/careers/teams',second='https://example.org/careers/search-results';
+  for(const url of [first,second])await store.requestCompany(a.id,'Example Company',url,now,'Could not inspect this page.');
+  await store.requestCompany(b.id,'Example Company',first,now);
+  assert.equal((await store.requests(a.id)).length,2,'Reproduce the two distinct saved Example Company URLs');
   assert.equal((await watchApi(req('/remove-request',{url:first}),{DB:db})).status,401);
   const removed=await watchApi(req('/remove-request',{url:first},session),{DB:db});
   assert.equal(removed.status,200);assert.deepEqual((await removed.json()).requests.map(r=>r.url),[second]);
@@ -40,9 +61,9 @@ test('Cisco saved links can be removed or replaced without changing shared feeds
   const catalog=await store.catalog(now),prefs=(await store.account(a.id)).preferences;
   // Replacing also works at the limit, and replacing with an existing URL merges the saved links.
   for(let i=0;i<19;i++)await store.requestCompany(a.id,'Example '+i,`https://example.com/careers/${i}`,now);
-  assert.equal((await watchApi(req('/replace-request',{previousUrl:second,name:'Cisco',url:'http://localhost/'},session),{DB:db})).status,400);
+  assert.equal((await watchApi(req('/replace-request',{previousUrl:second,name:'Example Company',url:'http://localhost/'},session),{DB:db})).status,400);
   assert.ok((await store.requests(a.id)).some(r=>r.url===second));
-  assert.equal((await watchApi(req('/replace-request',{previousUrl:second,name:'Cisco',url:first},session),{DB:db})).status,200);
+  assert.equal((await watchApi(req('/replace-request',{previousUrl:second,name:'Example Company',url:first},session),{DB:db})).status,200);
   assert.equal((await store.requests(a.id)).length,20);
   assert.equal((await watchApi(req('/replace-request',{previousUrl:first,name:'Example',url:'https://example.com/careers/0'},session),{DB:db})).status,200);
   assert.equal((await store.requests(a.id)).length,19);

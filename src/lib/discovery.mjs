@@ -4,12 +4,13 @@ export {matchesRole} from './job-matching.mjs';
 
 import { AppError, object, text, validateJob, canonicalUrl, stripHtml, skillsIn } from './domain.mjs';
 import { getPublicPage, importJob } from './importer.mjs';
-import { REQUESTED_COMPANIES } from './company-sources.mjs';
+import { REQUESTED_COMPANIES, companySource } from './company-sources.mjs';
 import { loadCompanyFeed } from './company-feeds.mjs';
 
 const MINUTE = 60_000;
 export const SOURCES = [
   ...REQUESTED_COMPANIES,
+  companySource({name:'Cisco',url:'https://careers.cisco.com/global/en/search-results'}),
   ...[['stripe','Stripe'],['intercom','Intercom'],['datadog','Datadog'],['squarespace','Squarespace'],['mongodb','MongoDB'],['toast','Toast'],['reddit','Reddit']].map(([id,name]) => ({
     id, name, type:'greenhouse', url:`https://boards-api.greenhouse.io/v1/boards/${id}/jobs?content=true`,
     home:`https://job-boards.greenhouse.io/${id}`, ttl:30*MINUTE,

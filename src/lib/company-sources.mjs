@@ -18,6 +18,8 @@ export function companySource(input){
   object(input);
   const name=text(input.name,120,true),url=new URL(publicUrl(text(input.url,2048,true)));
   if(url.protocol!=='https:'||url.port||/^[\d.]+$/.test(url.hostname))throw new AppError('Use the company’s public HTTPS careers link.');
+  // Cisco's careers landing page can fail inspection; its official board uses the existing Workday adapter.
+  if(url.hostname==='careers.cisco.com')return companySource({name:'Cisco',url:'https://cisco.wd5.myworkdayjobs.com/en-US/Cisco_Careers'});
   if(url.hostname==='mastercard.wd1.myworkdayjobs.com')return {...REQUESTED_COMPANIES.find(s=>s.id==='mastercard')};
   if(url.hostname==='ouryahoo.wd5.myworkdayjobs.com')return {...REQUESTED_COMPANIES.find(s=>s.id==='yahoo')};
   if(url.hostname==='wd1.myworkdaysite.com'&&/^\/(?:en-US\/)?recruiting\/fmr\/FidelityCareers(?:\/|$)/.test(url.pathname))return {...REQUESTED_COMPANIES.find(s=>s.id==='fidelity')};

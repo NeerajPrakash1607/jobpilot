@@ -3,12 +3,33 @@ import assert from 'node:assert/strict';
 import {companySource,validateSourcePreferences,unconnectedCompanyLinks} from '../src/lib/company-sources.mjs';
 import {probeCompany} from '../src/lib/company-connections.mjs';
 import {loadCompanyFeed} from '../src/lib/company-feeds.mjs';
-import {parseFeed,createDiscovery} from '../src/lib/discovery.mjs';
+import {parseFeed,createDiscovery,SOURCES} from '../src/lib/discovery.mjs';
 import {importJob} from '../src/lib/importer.mjs';
 import {getPublicPage} from '../src/lib/public-fetch.mjs';
 
 const ashby={title:'Support Engineer',location:'Dublin, Ireland',jobUrl:'https://jobs.ashbyhq.com/example/11111111-2222-3333-4444-555555555555',descriptionPlain:'Help customers use our software.',isListed:true};
 const linkedInPosting=i=>({id:String(744000150000000+i),name:'Senior Software Engineer',company:{identifier:'LinkedIn3'},visibility:'PUBLIC',location:{city:'Dublin',region:'County Dublin',country:'ie',hybrid:true},releasedDate:'2026-09-17T13:56:35.890Z'});
+test('Cisco careers links use its verified Workday feed even when the careers page cannot be inspected',async()=>{
+ const home='https://cisco.wd5.myworkdayjobs.com/en-US/Cisco_Careers';
+ const direct=companySource({name:'Cisco',url:home});
+ const links=['https://careers.cisco.com/global/en/collab','https://careers.cisco.com/global/en/search-results'];
+ for(const url of links)assert.deepEqual(companySource({name:'Cisco',url}),direct);
+ assert.equal(SOURCES.filter(s=>s.id===direct.id).length,1,'Cisco is available without another account-specific request');
+ const catalog=[{id:direct.id,name:'Cisco',url:home,supported:true}];
+ assert.deepEqual(unconnectedCompanyLinks(catalog,links.map(url=>({name:'Cisco',url,connected:false})),links.map(home=>({name:'Cisco',home}))),[]);
+ assert.equal(companySource({name:'Cisco',url:'https://careers.cisco.com.evil.example/'}).type,'website');
+ assert.notEqual(companySource({name:'Other board',url:'https://cisco.wd5.myworkdayjobs.com/en-US/OtherBoard'}).id,direct.id);
+ let requests=0;
+ const result=await probeCompany({name:'Cisco',url:links[1]},SOURCES,async(url,_redirects,_bytes,options)=>{
+  assert.equal(url,'https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs');requests++;
+  const body=JSON.parse(options.body);
+  if(!body.appliedFacets.locations)return JSON.stringify({total:80,jobPostings:[],facets:[{facetParameter:'locations',values:[{id:'irish',descriptor:'Galway, Ireland'},{id:'us',descriptor:'San Jose, California'}]}]});
+  assert.deepEqual(body.appliedFacets,{locations:['irish']});
+  return JSON.stringify({total:1,jobPostings:[{title:'Support Engineer',externalPath:'/job/Galway-Ireland/Support-Engineer_12345',locationsText:'Galway, Ireland',bulletFields:['12345']}]});
+ },async()=>{assert.fail('Cisco should not depend on HTML discovery');});
+ assert.equal(result.status,'connected');assert.equal(result.feed.jobs.length,1);assert.equal(requests,2);
+ assert.equal(result.feed.jobs[0].url,home+'/job/Galway-Ireland/Support-Engineer_12345');
+});
 test('Fidelity careers links resolve to one selectable Ireland feed and replace saved links',async()=>{
  const home='https://jobs.fidelity.com/ie/locations/dublin-ireland/';
  for(const url of [home,'https://jobs.fidelity.com/ie/jobs/?location=Dublin','https://wd1.myworkdaysite.com/en-US/recruiting/fmr/FidelityCareers','https://wd1.myworkdaysite.com/recruiting/fmr/FidelityCareers/job/Dublin-Ireland/Engineer_2135464-2']){
