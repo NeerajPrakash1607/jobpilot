@@ -11,11 +11,16 @@ const levelNames = {any:'Any experience',entry:'Early career · 0–2 years requ
 const emptySearch = {companies:[],roles:'',city:'',level:'any',arrangement:'any',sponsorship:'any',includeInternships:false,includeApprenticeships:false};
 const companyOrder = (a,b) => a.name.localeCompare(b.name,'en',{sensitivity:'base',numeric:true});
 
-export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies, getProfile}) {
+export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies, removeLegacyCompany, getProfile}) {
   let companies = [], selection = new Set(), jobs = [], visible = 20, state = null;
   let initialized = false, filterRevision = 0, totalMatches = 0, checking = false, saving = new Set();
   let alertDraft = null, authPurpose = 'alerts', alertBusy = false, legacy = [], previewJob = null;
   let requestedLinks = [], onlyNew = false, newCount = 0, visit = null;
+  let editingCompany = null, companyBusy = false;
+  async function discardLegacy(entry) {
+    for (const id of entry.legacyIds) await removeLegacyCompany(id);
+    legacy = legacy.filter(c => !entry.legacyIds.includes(c.id));
+  }
   function startVisit() {
     if (visit) return;
     let raw = null; try { raw = localStorage.getItem(VISIT_KEY); } catch {}
@@ -88,9 +93,10 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     const matches = directory.filter(c => c.name.toLowerCase().includes(query));
     $('watch-companies').innerHTML = matches.length ? matches.map(c => c.supported
       ? `<div class="company-choice ${selection.has(c.id) ? 'selected':''}"><label><input type="checkbox" data-watch-company="${escape(c.id)}" ${selection.has(c.id) ? 'checked':''}><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.lastSuccess ? `${c.count} Ireland / eligible remote jobs` : 'Count not available yet'} · ${healthNames[c.health]}</span></span></label><details class="company-coverage"><summary>Coverage</summary><p>Last successful check: ${when(c.lastSuccess)}${c.partial ? '. Some employer listings may be missing.':''}${c.note ? '. '+escape(c.note):''}</p><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Official careers page ↗</a></details></div>`
-      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.checkedAt ? 'Saved link · Connection needs attention':c.ready ? 'Saved careers link · Ready to connect':'Saved link · Not connected'}</span></span></div><p class="connection-reason">${escape(c.message)}</p>${c.checkedAt?`<p class="connection-checked">Last connection attempt: ${when(c.checkedAt)}</p>`:''}<div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready&&!c.checkedAt ? 'Review and connect':'Retry connection'}</button><button type="button" class="text-button" data-change-company="${c.reviewIndex}">Change link</button></div><details class="company-coverage"><summary>About this link</summary><p>This link stays in your list. It contributes no job counts or alerts until a public feed is verified. ${escape(c.message)}</p></details></div>`
+      : `<div class="company-choice company-link"><div class="company-link-header"><span class="company-avatar" aria-hidden="true">${escape(c.name.slice(0,2))}</span><span class="company-choice-name"><strong>${escape(c.name)}</strong><span>${c.checkedAt ? 'Saved link · Connection needs attention':c.ready ? 'Saved careers link · Ready to connect':'Saved link · Not connected'}</span></span></div><p class="connection-address">${escape(c.url)}</p><p class="connection-reason">${escape(c.message)}</p>${c.checkedAt?`<p class="connection-checked">Last connection attempt: ${when(c.checkedAt)}</p>`:''}<div class="company-link-actions"><a href="${escape(c.url)}" target="_blank" rel="noopener noreferrer">Open careers page ↗</a><button type="button" class="text-button" data-review-company="${c.reviewIndex}">${c.ready&&!c.checkedAt ? 'Review and connect':'Retry connection'}</button><button type="button" class="text-button" data-change-company="${c.reviewIndex}">Change link</button>${c.saved || c.legacyIds.length ? `<button type="button" class="text-button" data-delete-company="${c.reviewIndex}">Remove</button>` : ''}</div><details class="company-coverage"><summary>About this link</summary><p>This link contributes no job counts or alerts until a public feed is verified. ${escape(c.message)}</p></details></div>`
     ).join('') : `<p class="company-no-match">${query ? `“${escape($('watch-company-filter').value)}” isn’t in your list yet. Add its careers page below.` : 'The company directory is loading.'}</p>`;
     $('watch-companies').scrollTop = scroll;
+    $('watch-companies').querySelectorAll('button').forEach(button => button.disabled = companyBusy);
     if (focusId) [...$('watch-companies').querySelectorAll('input')].find(el => el.dataset.watchCompany === focusId)?.focus({preventScroll:true});
     $('watch-selection-chips').innerHTML = picked.map(c => `<button type="button" class="selection-chip" data-remove-company="${escape(c.id)}" aria-label="Remove ${escape(c.name)} filter">${escape(c.name)} <span aria-hidden="true">×</span></button>`).join('');
     const count = ['level','arrangement','sponsorship'].filter(k => $('watch-'+k).value !== 'any').length + ['includeInternships','includeApprenticeships'].filter(k => $('watch-'+k).checked).length;
@@ -188,7 +194,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
     $('watch-pause').textContent = a?.status === 'waitlisted' ? 'Leave alert waitlist':'Pause daily alerts';
     $('watch-delete').disabled = !a;
     $('watch-company-signin').hidden = !!a;
-    $('watch-request-form').querySelector('button').disabled = !a;
+    $('watch-request-form').querySelector('button').disabled = !a || companyBusy;
     $('watch-service-state').textContent = state.runnerHeartbeat ? `Background checker last ran ${when(state.runnerHeartbeat)}.` : 'Background checks have not completed yet.';
     $('watch-alert-message').textContent = authPurpose === 'company' ? 'Sign-in saves the company connection to your account. It does not activate email alerts.' : a?.status === 'waitlisted' ? `The free pilot has room for ${state.capacity} active subscribers. Your place is saved; emails haven’t started.` : a && !state.alertsReady && !existing ? 'New email subscriptions are not open yet. You can keep browsing jobs.' : '';
     renderCompanies();
@@ -246,24 +252,53 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   $('watch-delete').addEventListener('click',async () => { if (!confirm('Delete your alert account, company requests and email history? Your résumé and applications in this browser will stay.')) return; try { await api('/delete',{}); await loadState(); $('watch-alert-success').hidden = true; notify('Alert account deleted.'); } catch(e) { error(e.message,true); } });
   $('watch-company-signin').addEventListener('click',() => { closeDialog('company-dialog'); openAlerts('company'); });
   $('watch-request-form').addEventListener('submit',async e => {
-    e.preventDefault(); const button = e.target.querySelector('button'); if (button.disabled) return;
+    e.preventDefault(); const button = e.target.querySelector('button'); if (button.disabled || companyBusy) return;
+    companyBusy = true; renderCompanies();
     button.disabled = true; button.textContent = 'Checking connection…'; e.target.setAttribute('aria-busy','true'); $('watch-request-message').textContent = 'Looking for a public job board and checking its jobs…';
     try {
       const input = Object.fromEntries(new FormData(e.target));
+      if (editingCompany) {
+        const previous = editingCompany;
+        if (previous.saved) {
+          const updated = await api('/replace-request',{...input,previousUrl:previous.url});
+          state.requests = updated.requests;
+          editingCompany = null;
+          renderCompanies();
+        }
+        if (previous.saved) await discardLegacy(previous);
+      }
       const r = await api('/connect',input); state.requests = r.requests;
+      if (editingCompany) { await discardLegacy(editingCompany); editingCompany = null; }
       if (r.id) { selection.add(r.id); await search(); }
       $('watch-company-filter').value = r.name || input.name; renderCompanies(); $('watch-companies').scrollTop = 0; e.target.reset();
       $('watch-request-message').textContent = r.id ? `${r.name} is connected and selected. ${r.count === 0 ? 'No Ireland / eligible remote jobs were found yet.' : `${r.count} Ireland / eligible remote jobs found.`}${r.status === 'partial' ? ' Coverage is partial; some listings may be missing.' : ''} Its jobs are checked daily. Use “Email me matching jobs” to include this search in your alerts.` : `${input.name} now appears in your company list. ${r.message}`;
       if (r.id) celebrate(button);
     } catch(err) { $('watch-request-message').textContent = err.message; try { await loadState(); renderCompanies(); } catch {} }
-    finally { button.disabled = !state?.account; button.textContent = 'Check and connect'; e.target.setAttribute('aria-busy','false'); }
+    finally { companyBusy = false; renderCompanies(); button.disabled = !state?.account; button.textContent = 'Check and connect'; e.target.setAttribute('aria-busy','false'); }
   });
-  $('watch-companies').addEventListener('click',e => {
+  $('watch-companies').addEventListener('click',async e => {
+    if (companyBusy) return;
+    const remove = e.target.closest('[data-delete-company]');
+    if (remove) {
+      const entry = requestedLinks[Number(remove.dataset.deleteCompany)];
+      if (!confirm(`Remove this saved ${entry.name} link?\n${entry.url}\nYou can add it again later.`)) return;
+      companyBusy = true; renderCompanies();
+      try {
+        if (entry.saved) state.requests = (await api('/remove-request',{url:entry.url})).requests;
+        await discardLegacy(entry);
+        if (editingCompany?.url === entry.url) { editingCompany = null; $('watch-request-form').reset(); $('watch-add-section').hidden = true; }
+        $('watch-check-progress').textContent = `${entry.name} saved link removed.`;
+        notify(`${entry.name} saved link removed.`);
+      } catch(err) { $('watch-check-progress').textContent = err.message; }
+      finally { companyBusy = false; renderCompanies(); $('watch-company-filter').focus(); }
+      return;
+    }
     const button = e.target.closest('[data-review-company],[data-change-company]'); if (!button) return;
     const entry = requestedLinks[Number(button.dataset.reviewCompany ?? button.dataset.changeCompany)], form = $('watch-request-form');
+    editingCompany = button.hasAttribute('data-change-company') ? entry : null;
     $('watch-add-section').hidden = false;
     form.elements.name.value = entry.name; form.elements.url.value = entry.url;
-    $('watch-request-message').textContent = entry.message;
+    $('watch-request-message').textContent = editingCompany ? 'Edit this careers link, then check it. The new link will replace this saved entry.' : entry.message;
     form.elements.url.focus(); form.elements.url.select();
     if (state?.account && button.hasAttribute('data-review-company')) form.requestSubmit();
   });
@@ -302,7 +337,7 @@ export function createWatchUI({notify, saveJob, getSavedJobs, getLegacyCompanies
   $('watch-company-open').addEventListener('click',openCompanies);
   $('watch-coverage-open').addEventListener('click',openCompanies);
   $('watch-freshness').addEventListener('click',openCompanies);
-  $('watch-add-company').addEventListener('click',() => { $('watch-add-section').hidden = false; $('watch-request-form').elements.name.value = $('watch-company-filter').value.trim(); $('watch-request-form').elements.name.focus(); $('watch-request-message').textContent = state?.account ? '' : 'Sign in to save a company connection or request.'; });
+  $('watch-add-company').addEventListener('click',() => { if (companyBusy) return; editingCompany = null; $('watch-request-form').reset(); $('watch-add-section').hidden = false; $('watch-request-form').elements.name.value = $('watch-company-filter').value.trim(); $('watch-request-form').elements.name.focus(); $('watch-request-message').textContent = state?.account ? '' : 'Sign in to save a company connection or request.'; });
   $('watch-alert-open').addEventListener('click',() => openAlerts());
   $('watch-account-open').addEventListener('click',() => openAlerts());
   $('watch-refresh').addEventListener('click',async () => {

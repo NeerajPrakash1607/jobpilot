@@ -4,6 +4,7 @@ import {watchStore} from './watch-store.mjs';
 import {parseWatchPreferences,matchWatchJobs,PILOT_CAPACITY} from './watch-domain.mjs';
 import {cookie,setCookie,randomToken,hashToken,googleIdentity,requireRunner,unsubscribeToken} from './watch-auth.mjs';
 import {checkCompany,nextDigest,connectCompany} from './watch-service.mjs';
+import {companySource} from './company-sources.mjs';
 
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store',...headers}});
 async function input(request){
@@ -74,6 +75,16 @@ export async function watchApi(request,env){
   }
   if(route==='/logout'){if(session)await store.logout(await hashToken(session));return json({ok:true},200,{'Set-Cookie':setCookie(request,'jp_watch_session','',0)});}
   if(!account)throw new AppError('Sign in with Google to save your watchlist or manage alerts.',401);
+  if(route==='/remove-request'){
+   const link=companySource({name:'Saved company',url:data.url});
+   await store.removeCompanyRequest(account.id,link.home);
+   return json({requests:await store.requests(account.id)});
+  }
+  if(route==='/replace-request'){
+   const previous=companySource({name:'Saved company',url:data.previousUrl}),source=companySource(data);
+   await store.replaceCompanyRequest(account.id,previous.home,source,now);
+   return json({requests:await store.requests(account.id)});
+  }
   if(route==='/connect')return json({...await connectCompany(store,account.id,data,now),requests:await store.requests(account.id)});
   if(route==='/preferences')return json({account:await store.preferences(account.id,parseWatchPreferences(data,await store.sources()),now)});
   if(route==='/subscribe'){

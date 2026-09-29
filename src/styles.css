@@ -781,3 +781,5 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 @media(max-width:600px){.quick-start-launch .pilot-mascot{width:40px;height:40px}.quick-start-launch .text-button{padding:4px 7px}.watch-heading h1{max-width:260px}}
 
 #watch-guide-form{margin-top:16px}#watch-guide-form>label{font-size:1rem}#watch-guide-form select{font-size:1rem}#watch-guide-form .text-button{font-size:.875rem}
+
+.connection-address{margin:8px 0 8px 48px;font-size:.875rem;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}

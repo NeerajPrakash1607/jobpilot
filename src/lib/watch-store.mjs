@@ -12,6 +12,12 @@ export function watchStore(db){
   const custom=(await all('SELECT definition FROM watch_sources WHERE definition IS NOT NULL ORDER BY rowid')).map(r=>companySource(JSON.parse(r.definition)));
   return [...WATCH_SOURCES,...custom.filter(s=>!WATCH_SOURCES.some(d=>d.id===s.id||d.url===s.url))];
  }
+ async function requests(id){const connected=await sources();return (await all('SELECT name,url,created_at,source_id,connection_message,checked_at FROM watch_requests WHERE account_id=? ORDER BY created_at DESC',id)).map(r=>({...r,connected:connected.some(s=>s.type!=='website'&&(s.id===r.source_id||s.home===r.url||s.url===companySource(r).url))}));}
+ async function savedLinkUrls(id,url){
+  const matches=(await requests(id)).filter(r=>!r.connected&&companySource(r).home===url);
+  if(!matches.length)throw new AppError('This saved link is no longer in your list. Reload to see your current companies.',404);
+  return matches.map(r=>r.url);
+ }
  async function invalidateClaims(id,now){
   await db.batch([
    stmt("DELETE FROM watch_delivered_jobs WHERE delivery_id IN (SELECT id FROM watch_deliveries WHERE account_id=? AND state='claimed')",id),
@@ -20,7 +26,19 @@ export function watchStore(db){
   ]);
  }
  return {
-  account,sources,
+  account,sources,requests,
+  async removeCompanyRequest(id,url){
+   const urls=await savedLinkUrls(id,url);
+   await db.batch(urls.map(saved=>stmt('DELETE FROM watch_requests WHERE account_id=? AND url=?',id,saved)));
+  },
+  async replaceCompanyRequest(id,previousUrl,source,now){
+   const urls=await savedLinkUrls(id,previousUrl);
+   // Insert and remove in one transaction: failed writes keep the original; an existing target merges.
+   await db.batch([
+    stmt('INSERT INTO watch_requests(id,account_id,name,url,created_at) VALUES(?,?,?,?,?) ON CONFLICT(account_id,url) DO UPDATE SET name=excluded.name',crypto.randomUUID(),id,source.name,source.home,now),
+    ...urls.filter(url=>url!==source.home).map(url=>stmt('DELETE FROM watch_requests WHERE account_id=? AND url=?',id,url)),
+   ]);
+  },
   async addSource(accountId,source,now,submitted=source){
    const requested=await all('SELECT url FROM watch_requests WHERE account_id=?',accountId);
    if(requested.length>=20&&!requested.some(r=>r.url===submitted.home))throw new AppError('You can connect or request up to 20 companies.',409);
@@ -82,7 +100,6 @@ export function watchStore(db){
    if(!result.meta.changes&&!await stmt('SELECT id FROM watch_requests WHERE account_id=? AND url=?',id,url).first())throw new AppError('You have reached 20 company requests.',409);
    if(message)await stmt('UPDATE watch_requests SET connection_message=?,checked_at=? WHERE account_id=? AND url=?',message,now,id,url).run();
   },
-  async requests(id){const connected=await sources();return (await all('SELECT name,url,created_at,source_id,connection_message,checked_at FROM watch_requests WHERE account_id=? ORDER BY created_at DESC',id)).map(r=>({...r,connected:connected.some(s=>s.type!=='website'&&(s.id===r.source_id||s.home===r.url||s.url===companySource(r).url))}));},
   async activeAccounts(){return (await all("SELECT * FROM watch_accounts WHERE status='active' ORDER BY opted_at")).map(asAccount);},
   async delivered(id){return new Set((await all('SELECT job_id FROM watch_delivered_jobs WHERE account_id=?',id)).map(r=>r.job_id));},
   async pendingOutages(id,catalog){
