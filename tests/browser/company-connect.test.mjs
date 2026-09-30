@@ -76,12 +76,18 @@ test('one job flow supports anonymous search, saved applications, connections an
   assert.equal(await page.locator('.new-job-badge').count(),1);
   assert.equal(await page.locator('nav[aria-label="Main sections"] button').count(),3);
   assert.equal(await page.locator('.job-result-row').count(),20);
-  assert.match(await page.locator('#watch-result-count').innerText(),/23 jobs/);
+  assert.match(await page.locator('#watch-result-count').innerText(),/23 jobs to explore · 20 shown/);
+  assert.equal(await page.locator('#watch-level').isVisible(),true);
+  assert.match(await page.locator('#watch-company-scope').innerText(),/all connected companies/);
+  await page.getByText('What counts as new?',{exact:true}).click();
+  assert.match(await page.locator('.visit-toolbar .inline-help').innerText(),/not the employer’s posting date/);
+  await page.getByText('What counts as new?',{exact:true}).click();
   assert.equal(await page.locator('#watch-more').isVisible(),true);
   const firstRow=await page.locator('.job-result-row').first().boundingBox();
   assert.ok(firstRow.y+firstRow.height<page.viewportSize().height, 'The first desktop job must be fully visible beside the filters without scrolling');
   assert.ok((await page.locator('.search-rail').boundingBox()).x<(await page.locator('.search-content').boundingBox()).x);
   await page.locator('.job-result-row').first().evaluate(async el=>{await Promise.all(el.parentElement.getAnimations({subtree:true}).map(a=>a.finished));});
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:'/private/tmp/jobpilot-refined-desktop.png',fullPage:false});
   await page.locator('#watch-guide-open').click();
   assert.ok(await page.locator('#watch-guide-form>label').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=14));
@@ -100,7 +106,12 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-reset').click();
   await page.locator('#watch-result-count').filter({hasText:'23 jobs'}).waitFor();
   await page.locator('#watch-more').click();assert.equal(await page.locator('.job-result-row').count(),23);
+  assert.doesNotMatch(await page.locator('#watch-result-count').innerText(),/20 shown/);
   await page.locator('#watch-company-open').click();
+  assert.match(await page.locator('#watch-company-selection').innerText(),/No selection means all connected/);
+  await page.getByText('Why can’t I select some companies?',{exact:true}).click();
+  assert.match(await page.locator('.company-selection-help').innerText(),/Careers link only/);
+  await page.getByText('Why can’t I select some companies?',{exact:true}).click();
   await page.locator('#watch-company-filter').fill('Stripe');
   await page.locator('[data-watch-company="stripe"]').check();
   await page.locator('#watch-companies').getByText('23 Ireland / eligible remote jobs',{exact:false}).waitFor();
@@ -116,11 +127,12 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-includeApprenticeships').check();
   await page.locator('#watch-search').click();
   const role=page.locator('.job-result-row');
-  await role.getByRole('button',{name:'Junior Support Engineer',exact:true}).click();
+  await role.getByRole('button',{name:'View details for Junior Support Engineer',exact:true}).click();
   assert.equal(await page.locator('#job-dialog').isVisible(),true);
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#job-dialog').isVisible(),false);
-  assert.equal(await role.getByRole('button',{name:'Junior Support Engineer',exact:true}).evaluate(el=>el===document.activeElement),true);
+  assert.equal(await role.getByRole('button',{name:'View details for Junior Support Engineer',exact:true}).evaluate(el=>el===document.activeElement),true);
+  assert.match(await page.locator('#job-preview-content').innerText(),/it does not apply for you/);
   await role.locator('[data-watch-save]').click();
   await role.getByRole('button',{name:'Saved Junior Support Engineer',exact:true}).waitFor();
   await page.locator('.flying-save').waitFor({state:'visible'});
@@ -144,12 +156,14 @@ test('one job flow supports anonymous search, saved applications, connections an
   assert.match(await page.locator('#watch-alert-summary').innerText(),/support/);
   assert.doesNotMatch(await page.locator('#watch-alert-summary').innerText(),/platform|Cork/);
   assert.equal((await store.account(account.id)).status,'inactive');
+  assert.equal(await page.locator('#watch-alert-status').innerText(),'Alerts off');
   await page.locator('#watch-subscribe').click();
   assert.match(await page.locator('#watch-flow-error').innerText(),/choose to receive daily emails/);
   assert.equal((await store.account(account.id)).status,'inactive');
   await page.locator('#watch-email-consent').check();await page.locator('#watch-subscribe').click();
   await page.locator('#watch-alert-success').waitFor();
   const subscribed=await store.account(account.id);assert.equal(subscribed.status,'active');
+  assert.equal(await page.locator('#watch-alert-status').innerText(),'Alerts active · Daily');
   assert.deepEqual(subscribed.preferences,{companies:['stripe'],roles:'support',city:'Dublin',level:'entry',arrangement:'hybrid',sponsorship:'needed',includeInternships:true,includeApprenticeships:true});
   await page.screenshot({path:'/private/tmp/jobpilot-redesign-success.png'});
   const savedAlertSearch={...subscribed.preferences,companies:['amazon','mastercard','stripe']};
@@ -159,7 +173,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.reload();await reloadSearch;
   await page.locator('#watch-results[aria-busy="false"]').waitFor();
   assert.equal(await page.locator('[data-watch-company]:checked').count(),0,'Reload must not restore the saved alert companies');
-  assert.equal(await page.locator('#watch-selected-count').innerText(),'All companies');
+  assert.equal(await page.locator('#watch-selected-count').innerText(),'All connected companies');
   await page.locator('#watch-result-count').filter({hasText:'23 jobs'}).waitFor();
   assert.equal(await page.locator('.save-job.is-saved').count(),1);
   assert.equal(await page.locator('#watch-roles').inputValue(),'');
@@ -178,6 +192,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   assert.equal(await page.locator('#watch-roles').inputValue(),'support');
   await page.locator('#watch-pause').click();
   await page.locator('#watch-account-state').filter({hasText:'Daily alerts paused'}).waitFor();
+  assert.equal(await page.locator('#watch-alert-status').innerText(),'Alerts paused');
   assert.equal(await page.locator('#watch-subscribe').isEnabled(),true);
   await page.locator('[data-close-dialog="alert-dialog"]').first().click();
   await page.locator('#watch-reset').click();
@@ -195,7 +210,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#watch-request-message').filter({hasText:'No supported public job board was found'}).waitFor();
   assert.ok(!(await store.sources()).some(s=>s.name==='Unsupported'));
   assert.match(await page.locator('#watch-companies').innerText(),/Unsupported/);
-  assert.match(await page.locator('#watch-companies').innerText(),/Saved link · Connection needs attention/);
+  assert.match(await page.locator('#watch-companies').innerText(),/Careers link only · Connection needs attention/);
   assert.match(await page.locator('#watch-request-message').innerText(),/Greenhouse, Lever, Ashby, Workday or SmartRecruiters/);
   assert.doesNotMatch(await page.locator('#watch-companies').innerText(),/not checked yet/);
   await page.locator('#watch-companies').getByRole('button',{name:'Retry connection',exact:true}).click();
@@ -219,7 +234,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   assert.equal((await store.requests(account.id)).some(r=>r.url==='https://blocked.acme.com/careers'),false,'Change link replaces its original entry even if the new page cannot connect');
   const linkedIn=page.locator('#watch-companies .company-link').filter({has:page.getByText('LinkedIn',{exact:true})});
   await linkedIn.waitFor({state:'visible'});
-  assert.match(await linkedIn.innerText(),/Saved link · Connection needs attention/);
+  assert.match(await linkedIn.innerText(),/Careers link only · Connection needs attention/);
   assert.equal(await linkedIn.locator('input[type=checkbox]').count(),0,'Saved links must not pretend to filter synced jobs');
   await linkedIn.locator('summary').click();
   assert.match(await linkedIn.innerText(),/employer’s own/);
@@ -263,12 +278,18 @@ test('one job flow supports anonymous search, saved applications, connections an
   await page.locator('#company-dialog').getByRole('button',{name:'Show jobs',exact:true}).click();
   await page.locator('#watch-reset').click();
   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});
-  assert.equal(await page.locator('#search-filter-panel').getAttribute('open'),null);
+  assert.equal(await page.locator('#search-filter-panel').evaluate(el=>el.open),true,'Search starts expanded on mobile');
+  assert.equal(await page.locator('#watch-level').isVisible(),true,'Experience is available without More filters');
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.screenshot({path:'/private/tmp/jobpilot-search-mobile.png'});
+  await page.locator('#watch-search').click();
   await page.locator('#watch-result-count').filter({hasText:'24 jobs'}).waitFor();
+  await page.waitForFunction(()=>document.activeElement.id==='watch-result-count');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'watch-result-count','Mobile search takes the user to results');
   await page.locator('#toast').evaluate(el=>el.classList.remove('visible','is-visible'));
   await page.screenshot({path:'/private/tmp/jobpilot-refined-mobile.png'});
   const mobileRow=await page.locator('.job-result-row').first().boundingBox();
-  assert.ok(mobileRow.y+mobileRow.height<page.viewportSize().height-64,'The first mobile role remains fully visible above the navigation');
+  assert.ok(mobileRow.y+mobileRow.height<page.viewportSize().height-64,'The first mobile role is fully visible after moving to results');
   await page.locator('#watch-guide-open').click();
   assert.equal(await page.locator('#guide-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
   await page.screenshot({path:'/private/tmp/jobpilot-quick-start-mobile.png'});
@@ -309,7 +330,7 @@ test('one job flow supports anonymous search, saved applications, connections an
   }
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});
-    if(width===390)await page.locator('#search-filter-panel > summary').click();
+    if(!(await page.locator('#search-filter-panel').evaluate(el=>el.open)))await page.locator('#search-filter-panel > summary').click();
     await page.locator('#watch-roles').fill('platform');await page.locator('#watch-city').fill('Cork');
     await page.locator('#watch-more-filters summary').click();
     await page.locator('#watch-level').selectOption('senior');await page.locator('#watch-arrangement').selectOption('remote');
@@ -320,7 +341,7 @@ test('one job flow supports anonymous search, saved applications, connections an
     await page.locator(width===390?'.mobile-brand':'.brand').click();await navigation;
     await page.locator('#watch-result-count').filter({hasText:'24 jobs'}).waitFor();
     assert.equal(new URL(page.url()).hash,'');
-    assert.equal(await page.locator('#watch-selected-count').textContent(),'All companies');
+    assert.equal(await page.locator('#watch-selected-count').textContent(),'All connected companies');
     assert.equal(await page.locator('[data-watch-company]:checked').count(),0);
     assert.equal(await page.locator('#watch-roles').inputValue(),'');assert.equal(await page.locator('#watch-city').inputValue(),'');
     assert.equal(await page.locator('#watch-level').inputValue(),'any');assert.equal(await page.locator('#watch-arrangement').inputValue(),'any');

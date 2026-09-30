@@ -783,3 +783,51 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 #watch-guide-form{margin-top:16px}#watch-guide-form>label{font-size:1rem}#watch-guide-form select{font-size:1rem}#watch-guide-form .text-button{font-size:.875rem}
 
 .connection-address{margin:8px 0 8px 48px;font-size:.875rem;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}
+
+/* Guidance stays beside the decision, with optional detail one click away. */
+.watch-heading .search-intro { max-width: 560px; margin: 12px 0 0; font-size: 1rem; line-height: 1.6; }
+.search-main-fields > label, .company-field { min-width: 0; }
+.search-main-fields select { width: 100%; min-width: 0; }
+#watch-company-open { min-width: 0; height: auto; }
+#watch-selected-count { white-space: normal; overflow-wrap: anywhere; line-height: 1.45; }
+.search-scope { margin: 14px 0 0; font-size: .875rem; line-height: 1.6; }
+.alert-entry { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+.alert-status { color: var(--muted-strong); font-size: .875rem; line-height: 1.5; text-align: right; }
+.alert-status.is-active { color: var(--accent); }
+.inline-help { color: var(--muted-strong); font-size: .875rem; line-height: 1.6; }
+.inline-help > summary { cursor: pointer; color: var(--accent); padding-block: 6px; }
+.inline-help p { margin: 8px 0; max-width: 62ch; }
+.visit-toolbar > .inline-help { flex: 1 1 180px; }
+.company-selection-help { margin: 0 0 16px; }
+.company-choice-name .company-connection-kind { color: var(--accent); font-size: .875rem; }
+.job-actions-help { margin: 0 0 16px; }
+.job-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 0 0 236px; }
+.job-row-actions .view-job { flex: 1 1 80px; font-size: .875rem; min-height: 40px; padding-inline: 0; text-align: center; white-space: normal; }
+.job-row-actions .save-job { flex: 1 1 120px; min-width: 0; white-space: normal; padding-inline: 9px; justify-content: center; }
+.job-row-actions .apply-job { flex: 1 1 100%; min-width: 0; white-space: normal; text-align: center; font-size: .875rem; line-height: 1.5; }
+.quick-start-steps { list-style: none; padding: 0; margin: 4px 0 20px; display: grid; gap: 12px; counter-reset: guide; }
+.quick-start-steps li { counter-increment: guide; display: grid; grid-template-columns: 28px 1fr; gap: 2px 10px; font-size: 1rem; line-height: 1.5; }
+.quick-start-steps li::before { content: counter(guide); grid-row: 1 / 3; border: 1px solid var(--line); border-radius: 50%; width: 26px; height: 26px; text-align: center; color: var(--accent); font-size: .875rem; line-height: 26px; }
+.quick-start-steps span { grid-column: 2; font-size: .875rem; color: var(--muted-strong); }
+.alert-explainer { padding-left: 22px; font-size: 1rem; line-height: 1.65; }
+.alert-explainer li + li { margin-top: 6px; }
+@media (max-width: 1100px) {
+  .search-main-fields { grid-template-columns: 1fr 1fr; }
+  .search-main-fields > .button { grid-column: 1 / -1; }
+  .job-row-actions { flex-basis: 236px; }
+}
+@media (max-width: 600px) {
+  .watch-heading .search-intro { font-size: .875rem; line-height: 1.6; }
+  .search-extras { flex-wrap: wrap; }
+  .search-extras > details { flex-basis: 100%; }
+  .job-toolbar > .alert-entry { width: 100%; align-items: stretch; }
+  .alert-status { text-align: left; }
+  .job-row-actions { flex-basis: 100%; }
+  .job-row-actions .apply-job { white-space: normal; }
+}
+
+/* Navigation labels wrap when visitors enlarge text. */
+.sidebar .nav-item { width: 100%; min-width: 0; white-space: normal; }
+.sidebar .nav-item > span:not(.nav-count) { min-width: 0; overflow-wrap: anywhere; }
+.sidebar .nav-count { flex-shrink: 0; }
+.sidebar .brand { flex-wrap: wrap; }
