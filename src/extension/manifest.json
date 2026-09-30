@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "JobPilot \u2014 Application Companion",
+  "version": "3.0.0",
+  "description": "Import and apply to the jobs you select using your own JobPilot browser workspace.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://jobpilot-neeraj.bhanuprakash0024.chatgpt.site/*"
+  ],
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "JobPilot"
+  }
+}

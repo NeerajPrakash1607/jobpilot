@@ -1,0 +1,14 @@
+import {build} from 'esbuild';
+import {mkdir,rm,cp,readFile,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+await rm('dist',{recursive:true,force:true});await mkdir('dist/client',{recursive:true});await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursive:true});
+for(const file of ['index.html','styles.css','privacy.html'])await cp('src/'+file,'dist/client/'+file);
+await cp('src/assets','dist/client/assets',{recursive:true});
+await cp('src/extension','dist/client/extension',{recursive:true});
+await cp('node_modules/pdfjs-dist/build/pdf.worker.mjs','dist/client/pdf.worker.mjs');
+await build({entryPoints:{app:'src/app.js'},bundle:true,format:'esm',splitting:true,outdir:'dist/client',platform:'browser',target:'es2022',chunkNames:'chunks/[name]-[hash]',minify:true});
+await build({entryPoints:['src/worker.mjs'],bundle:true,format:'esm',outfile:'dist/server/index.js',platform:'browser',target:'es2022',minify:true});
+await cp('.openai/hosting.json','dist/.openai/hosting.json');
+await cp('drizzle','dist/.openai/drizzle',{recursive:true});
+execFileSync('/usr/bin/zip',['-qr','../../dist/client/extension.zip','.'],{cwd:'src/extension'});
+console.log('Built the JobPilot website and companion.');
